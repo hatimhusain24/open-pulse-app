@@ -1,0 +1,27 @@
+# Asks the alert server to check for new alerts every 10 minutes.
+# Needs two repository secrets: ALERTS_CHECK_URL (e.g. https://your-app.vercel.app/api/check)
+# and CRON_SECRET (the same value as the CRON_SECRET environment variable on Vercel).
+name: Check alerts
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Ask the alert server to check
+        env:
+          URL: ${{ secrets.ALERTS_CHECK_URL }}
+          SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$URL" ] || [ -z "$SECRET" ]; then
+            echo "ALERTS_CHECK_URL or CRON_SECRET is not set; skipping."
+            exit 0
+          fi
+          curl -fsS --max-time 60 -H "Authorization: Bearer $SECRET" "$URL"

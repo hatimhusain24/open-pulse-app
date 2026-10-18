@@ -1,0 +1,2247 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Open Pulse</title>
+<meta name="description" content="A live dashboard of free public data: weather, air quality, crypto and currency markets, earthquakes, the International Space Station, world economies, tech news and Wikipedia.">
+<meta name="theme-color" content="#0b6a55">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H" crossorigin="anonymous">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js" integrity="sha384-dug+JxfBvklEQdJ4AYuBBAIScUz0bVN73xpy273gcAwHjb3qI0fXmuYNaNfdyYJG" crossorigin="anonymous"></script>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230b6a55'/%3E%3Cpath d='M5 17h5l3-7 4 13 3-8 2 2h5' fill='none' stroke='white' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<style>
+/* Layout: sticky control bar, a domain rail on the left (a scrolling strip on phones), panels in an auto-fit grid. */
+:root{
+  --bg:#f2f4f1; --panel:#ffffff; --panel-2:#f6f8f5; --ink:#101613; --ink-2:#45514b; --muted:#5c6862;
+  --line:#dce2dd; --line-strong:#c2ccc5; --grid:#e7ece8; --axis:#c2ccc5;
+  --accent:#0b6a55; --accent-ink:#ffffff; --accent-soft:#e0f0ea;
+  --good:#0ca30c; --warn:#fab219; --serious:#ec835a; --critical:#d03b3b;
+  --good-ink:#006300; --bad-ink:#b3292b;
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100; --s5:#e87ba4; --s6:#008300; --s7:#4a3aa7; --s8:#e34948;
+  --tile-filter:none;
+  /* US AQI category colours (EPA scale, toned slightly so text stays legible beside them) */
+  --aq0:#c2ccc5; --aq1:#2fb344; --aq2:#efc20f; --aq3:#f08a24; --aq4:#e0342f; --aq5:#8f3f97; --aq6:#7e0023;
+  --font-display:"Bricolage Grotesque", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-body:"Instrument Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-data:"JetBrains Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+  color-scheme:light;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0b0f0d; --panel:#131916; --panel-2:#18201c; --ink:#ecf1ed; --ink-2:#b6c1bb; --muted:#85918b;
+    --line:#232d28; --line-strong:#34423b; --grid:#1d2622; --axis:#34423b;
+    --accent:#45c7a3; --accent-ink:#04241b; --accent-soft:#143029;
+    --good-ink:#33c233; --bad-ink:#f07575;
+    --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s6:#008300; --s7:#9085e9; --s8:#e66767;
+    --tile-filter:invert(1) hue-rotate(180deg) brightness(.82) contrast(.9) saturate(.6);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0b0f0d; --panel:#131916; --panel-2:#18201c; --ink:#ecf1ed; --ink-2:#b6c1bb; --muted:#85918b;
+  --line:#232d28; --line-strong:#34423b; --grid:#1d2622; --axis:#34423b;
+  --accent:#45c7a3; --accent-ink:#04241b; --accent-soft:#143029;
+  --good-ink:#33c233; --bad-ink:#f07575;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500; --s5:#d55181; --s6:#008300; --s7:#9085e9; --s8:#e66767;
+  --tile-filter:invert(1) hue-rotate(180deg) brightness(.82) contrast(.9) saturate(.6);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 var(--font-body);padding-bottom:env(safe-area-inset-bottom,0px)}
+a{color:var(--accent)}
+a:hover{text-decoration-thickness:2px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+[hidden]{display:none!important}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.mono{font-family:var(--font-data);font-variant-numeric:tabular-nums}
+.muted{color:var(--muted)}
+.sm{font-size:13px}
+
+/* top bar */
+.top{position:sticky;top:0;z-index:1100;background:color-mix(in srgb,var(--bg) 90%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--line);padding-top:env(safe-area-inset-top,0px)}
+.top-in{max-width:1440px;margin:0 auto;display:flex;align-items:center;flex-wrap:wrap;gap:10px 16px;padding:10px 16px}
+.brand{display:flex;align-items:center;gap:10px;margin-right:auto;text-decoration:none;color:var(--ink)}
+.brand-mark{width:30px;height:30px;flex:none}
+.brand b{font:700 21px/1 var(--font-display);letter-spacing:-.02em}
+.brand span{display:block;font-size:12px;color:var(--muted);line-height:1.2;margin-top:2px}
+.controls{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.btn{font:500 14px/1.2 var(--font-body);color:var(--ink);background:var(--panel);border:1px solid var(--line-strong);border-radius:8px;padding:8px 12px;cursor:pointer;display:inline-flex;align-items:center;gap:8px;white-space:nowrap}
+.btn:hover{border-color:var(--accent)}
+.btn.sm{padding:5px 10px;font-size:13px}
+.btn .lbl{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.btn svg{width:16px;height:16px;flex:none}
+select.btn{appearance:none;-webkit-appearance:none;padding-right:28px;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 15px) 52%,calc(100% - 10px) 52%;background-size:5px 5px;background-repeat:no-repeat}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.field>span{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+input.inp{font:500 15px var(--font-data);color:var(--ink);background:var(--panel);border:1px solid var(--line-strong);border-radius:8px;padding:8px 10px;width:100%;min-width:0}
+.city{position:relative}
+@media (max-width:600px){.top-in{position:relative}.city{position:static}.pop{left:16px;right:16px;width:auto}}
+.pop{position:absolute;right:0;top:calc(100% + 6px);width:min(340px,calc(100vw - 32px));background:var(--panel);border:1px solid var(--line-strong);border-radius:10px;box-shadow:0 12px 32px rgba(0,0,0,.18);padding:12px;z-index:1200;display:flex;flex-direction:column;gap:8px}
+.pop ul{list-style:none;margin:0;padding:0;max-height:260px;overflow:auto}
+.pop li button{width:100%;text-align:left;background:none;border:0;color:var(--ink);padding:8px;border-radius:6px;cursor:pointer;font:inherit}
+.pop li button:hover,.pop li button:focus-visible{background:var(--accent-soft)}
+.pop li small{display:block;color:var(--muted)}
+
+/* shell */
+.shell{max-width:1440px;margin:0 auto;display:grid;grid-template-columns:208px minmax(0,1fr);gap:28px;padding:24px 16px 56px}
+.side{position:sticky;top:84px;align-self:start}
+.side ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+.side a{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;text-decoration:none;color:var(--ink-2);font-weight:500;white-space:nowrap}
+.side a:hover{background:var(--panel);color:var(--ink)}
+.side a[aria-current="page"]{background:var(--panel);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--line-strong);flex:none;margin-left:auto}
+.dot.ok{background:var(--good)}
+.dot.load{background:var(--warn)}
+.dot.err{background:var(--critical)}
+.side-note{margin:18px 12px 0;font-size:12.5px;color:var(--muted);line-height:1.45}
+@media (max-width:900px){
+  .top{position:static}
+  .shell{grid-template-columns:minmax(0,1fr);gap:16px;padding-top:12px}
+  .side{position:static;margin:0 -16px;overflow-x:auto;scrollbar-width:none}
+  .side::-webkit-scrollbar{display:none}
+  .side ul{flex-direction:row;padding:0 16px;gap:6px}
+  .side a{border:1px solid var(--line);background:var(--panel);padding:7px 12px}
+  .side a[aria-current="page"]{border-color:var(--accent);box-shadow:none}
+  .dot{margin-left:0}
+  .side-note{display:none}
+}
+main{min-width:0;display:flex;flex-direction:column;gap:16px}
+.vh{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:8px 16px;margin-bottom:4px}
+.vh h1{font:700 clamp(26px,3.4vw,34px)/1.1 var(--font-display);letter-spacing:-.025em;margin:0;text-wrap:balance}
+.vh p{margin:6px 0 0;color:var(--ink-2);max-width:64ch}
+.bar{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:flex-end}
+
+/* panels */
+.g{display:grid;gap:16px}
+.g-2{grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr))}
+.g-3{grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr))}
+.g-wide{grid-template-columns:minmax(0,1.6fr) minmax(0,1fr)}
+@media (max-width:1100px){.g-wide{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px 18px;min-width:0;display:flex;flex-direction:column;gap:12px}
+.ph{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 12px}
+.ph h2,.ph h3{margin:0;font:600 12px/1.3 var(--font-body);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2)}
+.ph .aside{font-size:13px;color:var(--muted)}
+.big{font:500 clamp(40px,5vw,54px)/1 var(--font-display);letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+.big small{font-size:.42em;letter-spacing:0;color:var(--muted);margin-left:2px}
+.mid{font:500 28px/1.1 var(--font-display);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.now{display:flex;flex-wrap:wrap;align-items:center;gap:8px 20px}
+.cond{font-size:18px;font-weight:600}
+.kv{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px 16px;margin:0}
+.kv div{min-width:0}
+.kv dt{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.kv dd{margin:2px 0 0;font:500 15px var(--font-data);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.src{display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 12px;font-size:12px;color:var(--muted);border-top:1px solid var(--line);padding-top:10px;margin-top:auto}
+.src a{color:var(--ink-2)}
+.warn-t{color:var(--bad-ink)}
+.chart{position:relative;width:100%;min-width:0}
+.h120{height:120px}.h160{height:160px}.h220{height:220px}.h260{height:260px}.h320{height:320px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:13px;color:var(--ink-2)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:10px;height:10px;border-radius:3px;display:inline-block}
+
+/* pills, deltas */
+.pill{display:inline-flex;align-items:center;gap:7px;padding:3px 10px;border-radius:999px;font-size:12.5px;font-weight:600;background:var(--panel-2);border:1px solid var(--line);color:var(--ink);white-space:nowrap}
+.pill i{width:8px;height:8px;border-radius:50%;background:var(--line-strong);flex:none}
+.st-good i{background:var(--good)}.st-warn i{background:var(--warn)}.st-serious i{background:var(--serious)}.st-critical i{background:var(--critical)}
+.delta{font-family:var(--font-data);font-variant-numeric:tabular-nums;white-space:nowrap;font-size:.95em}
+.delta.up{color:var(--good-ink)}.delta.down{color:var(--bad-ink)}
+.delta b{font-weight:400;font-size:.8em;margin-right:3px}
+
+/* tables */
+.tbl{overflow-x:auto;margin:0 -4px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th{text-align:left;font-weight:500;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:6px 8px;border-bottom:1px solid var(--line);white-space:nowrap}
+td{padding:9px 8px;border-bottom:1px solid var(--line);vertical-align:middle}
+tbody tr:last-child td{border-bottom:0}
+th.num,td.num{text-align:right;font-family:var(--font-data);font-variant-numeric:tabular-nums;white-space:nowrap}
+tr.pick{cursor:pointer}
+tr.pick:hover td{background:var(--panel-2)}
+tr.pick[aria-selected="true"] td{background:var(--accent-soft)}
+.coin{display:flex;align-items:center;gap:10px;min-width:150px}
+.coin img{width:22px;height:22px;border-radius:50%;flex:none}
+.coin small{color:var(--muted);text-transform:uppercase;font-family:var(--font-data);font-size:11.5px}
+.spark{display:block}
+.range{position:relative;height:6px;border-radius:3px;background:var(--panel-2);min-width:90px;box-shadow:inset 0 0 0 1px var(--line)}
+.range i{position:absolute;top:0;bottom:0;border-radius:3px;background:linear-gradient(90deg,var(--s1),var(--s2))}
+
+/* segmented control */
+.seg{display:inline-flex;border:1px solid var(--line-strong);border-radius:8px;overflow:hidden;background:var(--panel)}
+.seg button{font:500 13px var(--font-body);color:var(--ink-2);background:none;border:0;padding:6px 12px;cursor:pointer;border-right:1px solid var(--line)}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
+.seg button:focus-visible{outline-offset:-3px}
+.leaflet-popup-content a{color:var(--accent)}
+
+/* states */
+.state{display:flex;flex-direction:column;gap:10px;padding:6px 0}
+.state.err{flex-direction:row;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:12px;border-radius:8px;background:color-mix(in srgb,var(--critical) 9%,transparent);color:var(--ink);font-size:14px}
+.sk{display:block;height:14px;border-radius:4px;background:linear-gradient(90deg,var(--panel-2) 0%,var(--line) 50%,var(--panel-2) 100%);background-size:200% 100%;animation:sh 1.3s linear infinite}
+.sk.tall{height:42px;width:40%}
+.sk.short{width:55%}
+@keyframes sh{to{background-position:-200% 0}}
+.spin{color:var(--accent)}
+
+/* overview cards */
+.ov{display:grid;gap:16px;grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr))}
+.ov .panel{gap:10px}
+.ov-open{font-size:13px;font-weight:600;text-decoration:none;white-space:nowrap}
+.ov-open:hover{text-decoration:underline}
+.ov-rows{display:flex;flex-direction:column;gap:8px;margin:0;padding:0;list-style:none}
+.ov-rows li{display:flex;justify-content:space-between;align-items:baseline;gap:12px;min-width:0}
+.ov-rows li>span:first-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ov-rows li>:last-child:not(:first-child){flex:none;white-space:nowrap}
+.ov-rows a{color:var(--ink);text-decoration:none}
+.ov-rows a:hover{text-decoration:underline}
+
+/* fx */
+.rates{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px}
+.rate{background:var(--panel-2);border:1px solid var(--line);border-radius:8px;padding:10px 12px;text-align:left;cursor:pointer;color:var(--ink);font:inherit;display:flex;flex-direction:column;gap:2px;min-width:0}
+.rate:hover{border-color:var(--accent)}
+.rate[aria-pressed="true"]{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.rate small{color:var(--muted);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rate b{font:500 17px var(--font-data);font-variant-numeric:tabular-nums}
+.conv{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr) auto minmax(0,1fr);gap:10px;align-items:end}
+@media (max-width:560px){.conv{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.conv .swap{grid-column:1/-1;justify-self:start}}
+.conv-out{font:500 24px/1.2 var(--font-display);letter-spacing:-.01em;overflow-wrap:anywhere}
+.conv-out small{display:block;font:13px var(--font-body);color:var(--muted);margin-top:4px;letter-spacing:0}
+
+/* maps */
+.map{height:420px;border-radius:8px;overflow:hidden;border:1px solid var(--line);background:var(--panel-2);z-index:0}
+@media (max-width:600px){.map{height:320px}}
+.leaflet-tile-pane{filter:var(--tile-filter)}
+.leaflet-container{font:13px var(--font-body);background:var(--panel-2)}
+.leaflet-popup-content-wrapper,.leaflet-popup-tip{background:var(--panel);color:var(--ink)}
+.leaflet-popup-content{margin:10px 12px;line-height:1.45}
+.leaflet-control-attribution{background:color-mix(in srgb,var(--panel) 85%,transparent)!important;color:var(--muted)!important}
+.leaflet-control-attribution a{color:var(--ink-2)!important}
+.leaflet-bar a{background:var(--panel)!important;color:var(--ink)!important;border-color:var(--line)!important}
+.mag{display:inline-flex;align-items:center;justify-content:center;min-width:44px;padding:2px 8px;border-radius:6px;font:500 13px var(--font-data);background:var(--panel-2);border:1px solid var(--line)}
+.mag.m4{border-color:var(--warn)}.mag.m6{border-color:var(--serious);background:color-mix(in srgb,var(--serious) 14%,transparent)}.mag.m7{border-color:var(--critical);background:color-mix(in srgb,var(--critical) 16%,transparent)}
+.check{display:inline-flex;align-items:center;gap:8px;font-size:14px;color:var(--ink-2);cursor:pointer}
+.check input{accent-color:var(--accent);width:16px;height:16px}
+
+/* lists */
+.news{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.news li{display:grid;grid-template-columns:2.2em minmax(0,1fr);gap:4px 10px;padding:11px 0;border-bottom:1px solid var(--line)}
+.news li:last-child{border-bottom:0}
+.news .rk{font:500 13px var(--font-data);color:var(--muted);text-align:right;padding-top:2px}
+.news a.t{color:var(--ink);text-decoration:none;font-weight:600;font-size:15.5px;line-height:1.35}
+.news a.t:hover{text-decoration:underline}
+.news .meta{grid-column:2;font-size:13px;color:var(--muted);display:flex;flex-wrap:wrap;gap:2px 12px}
+.news .meta a{color:var(--muted)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{display:inline-flex;align-items:center;gap:8px;padding:5px 6px 5px 10px;border-radius:999px;border:1px solid var(--line-strong);background:var(--panel);font-size:14px}
+.chip i{width:10px;height:10px;border-radius:3px}
+.chip button{border:0;background:var(--panel-2);color:var(--ink-2);width:22px;height:22px;border-radius:50%;cursor:pointer;font-size:14px;line-height:1;display:inline-flex;align-items:center;justify-content:center}
+.chip button:hover{background:var(--line)}
+.feature{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:start}
+.feature img{width:120px;height:120px;object-fit:cover;border-radius:8px;border:1px solid var(--line)}
+@media (max-width:520px){.feature{grid-template-columns:minmax(0,1fr)}.feature img{width:100%;height:180px}}
+.feature h3{margin:0 0 6px;font:600 20px/1.25 var(--font-display);letter-spacing:-.01em}
+.feature p{margin:0;color:var(--ink-2);display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;overflow:hidden}
+.pod img{width:100%;max-height:340px;object-fit:cover;border-radius:8px;border:1px solid var(--line)}
+.otd{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.otd li{display:grid;grid-template-columns:3.6em minmax(0,1fr);gap:10px}
+.otd b{font:500 14px var(--font-data);color:var(--accent)}
+/* cards, pinning, dashboard */
+.ov .wide{grid-column:1/-1}
+.ph .aside{display:inline-flex;align-items:center;gap:10px;flex-wrap:wrap}
+.pin{font:600 12px/1 var(--font-body);color:var(--ink-2);background:var(--panel);border:1px solid var(--line-strong);border-radius:999px;padding:5px 10px;cursor:pointer}
+.pin:hover{border-color:var(--accent)}
+.pin[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--ink)}
+.card-ctl{display:inline-flex;gap:4px}
+.icon-btn{width:28px;height:28px;border-radius:6px;border:1px solid var(--line);background:var(--panel);color:var(--ink-2);cursor:pointer;font-size:14px;line-height:1;display:inline-flex;align-items:center;justify-content:center;flex:none}
+.icon-btn:hover{border-color:var(--accent);color:var(--ink)}
+#mine [data-card]{cursor:grab}
+#mine [data-card].dragging{opacity:.45}
+#mine [data-card].drag-over{outline:2px dashed var(--accent);outline-offset:2px}
+.brief{display:flex;flex-direction:column;gap:8px;font-size:15.5px;line-height:1.55}
+.brief p{margin:0;max-width:80ch;overflow-wrap:anywhere}
+/* AQI colours */
+.aq0{--aqc:var(--aq0)}.aq1{--aqc:var(--aq1)}.aq2{--aqc:var(--aq2)}.aq3{--aqc:var(--aq3)}.aq4{--aqc:var(--aq4)}.aq5{--aqc:var(--aq5)}.aq6{--aqc:var(--aq6)}
+.st-aq1 i{background:var(--aq1)}.st-aq2 i{background:var(--aq2)}.st-aq3 i{background:var(--aq3)}.st-aq4 i{background:var(--aq4)}.st-aq5 i{background:var(--aq5)}.st-aq6 i{background:var(--aq6)}
+.legend i.aq0,.legend i.aq1,.legend i.aq2,.legend i.aq3,.legend i.aq4,.legend i.aq5,.legend i.aq6{background:var(--aqc)}
+.legend i.dash{background:none;border-top:2px dashed;height:0;width:14px;border-radius:0}
+.legend i.ev-key{background:var(--panel);border:2.5px solid;border-radius:50%}
+.sw{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:8px;vertical-align:baseline;background:var(--aqc)}
+.hours{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:4px}
+.hr{display:flex;flex-direction:column;align-items:center;min-width:38px;padding:5px 2px;border-radius:6px;font:500 11px/1.25 var(--font-data);font-variant-numeric:tabular-nums;background:color-mix(in srgb,var(--aqc) 26%,var(--panel));border:2px solid transparent;color:var(--ink)}
+.hr b{font-weight:500;color:var(--ink-2)}
+.hr.best{border-color:var(--ink)}
+.hr.bad{background:repeating-linear-gradient(135deg,var(--panel-2) 0 4px,var(--panel) 4px 8px);color:var(--muted)}
+.cal-wrap{overflow-x:auto;padding-bottom:2px}
+.cal{display:grid;grid-auto-flow:column;grid-template-rows:repeat(7,14px);grid-auto-columns:14px;gap:3px;width:max-content}
+.cal i{border-radius:3px;background:var(--aqc,var(--panel-2))}
+.cal i.pad{background:none}
+.place-add{position:relative;max-width:420px}
+.res-list{list-style:none;margin:6px 0 0;padding:0;max-height:240px;overflow:auto}
+.res-list:empty{display:none}
+.res-list li button,.pop li button{width:100%;text-align:left;background:none;border:0;color:var(--ink);padding:8px;border-radius:6px;cursor:pointer;font:inherit}
+.res-list li button:hover,.res-list li button:focus-visible{background:var(--accent-soft)}
+.res-list li small{display:block;color:var(--muted)}
+.alerts{display:grid;grid-template-columns:minmax(0,1fr) 110px;gap:10px 14px;align-items:center;max-width:620px}
+.num-inp{width:110px}
+.offline{background:color-mix(in srgb,var(--warn) 22%,var(--bg));color:var(--ink);text-align:center;padding:8px 16px;font-size:14px;border-bottom:1px solid var(--line)}
+#toasts{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:1300;display:flex;flex-direction:column;gap:8px;width:min(360px,calc(100vw - 32px))}
+.toast{display:flex;gap:10px;align-items:flex-start;justify-content:space-between;background:var(--panel);color:var(--ink);border:1px solid var(--line-strong);border-radius:10px;padding:10px 10px 10px 14px;box-shadow:0 10px 28px rgba(0,0,0,.18);font-size:14px;overflow-wrap:anywhere}
+.toast p{margin:2px 0 0;color:var(--ink-2)}
+/* search */
+.kbd{font:500 11px var(--font-data);color:var(--muted);border:1px solid var(--line);border-radius:4px;padding:1px 5px}
+@media (max-width:600px){.kbd{display:none}}
+#palette{width:min(640px,calc(100vw - 32px));max-height:min(560px,calc(100vh - 80px));padding:0;border:1px solid var(--line-strong);border-radius:12px;background:var(--panel);color:var(--ink);box-shadow:0 24px 60px rgba(0,0,0,.3);margin-top:10vh}
+#palette[open]{display:flex;flex-direction:column}
+#palette::backdrop{background:rgba(10,14,12,.45)}
+.pal-in{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--line)}
+.pal-in svg{width:18px;height:18px;color:var(--muted);flex:none}
+#pal-q{flex:1;min-width:0;border:0;background:none;color:var(--ink);font:500 16px var(--font-body);outline:none}
+#pal-list{list-style:none;margin:0;padding:6px;overflow:auto;flex:1}
+#pal-list [role="option"]{display:flex;flex-direction:column;gap:1px;padding:8px 10px;border-radius:8px;cursor:pointer}
+#pal-list [role="option"] span{font-size:13px;color:var(--muted)}
+#pal-list [role="option"][aria-selected="true"],#pal-list [role="option"]:hover{background:var(--accent-soft)}
+.pal-g{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:10px 10px 4px}
+.pal-foot{padding:8px 14px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)}
+/* countries, space */
+.ctry-head{display:flex;align-items:center;gap:16px}
+.ctry-name{margin:0;font:700 clamp(24px,3vw,30px)/1.1 var(--font-display);letter-spacing:-.02em}
+.flag{border-radius:4px;border:1px solid var(--line);object-fit:cover;flex:none}
+.ctry-mini{display:flex;align-items:center;gap:10px}
+.sub{margin:6px 0 0;font:600 12px/1.3 var(--font-body);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2)}
+.launch-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.launch-list li{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.launch-list li:last-child{border-bottom:0}
+.launch-list li>div{min-width:0}
+.launch-when{display:flex;flex-direction:column;align-items:flex-end;gap:4px;text-align:right}
+@media (max-width:520px){.launch-when{align-items:flex-start;text-align:left}}
+.bg-alerts{display:flex;flex-direction:column;gap:6px;border-top:1px solid var(--line);padding-top:12px}
+footer{max-width:1440px;margin:0 auto;padding:0 16px 40px;color:var(--muted);font-size:13px}
+footer p{margin:0 0 6px;max-width:90ch}
+footer a{color:var(--ink-2)}
+@media (prefers-reduced-motion: reduce){.sk{animation:none}*{scroll-behavior:auto!important}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="top-in">
+    <a class="brand" href="#overview" aria-label="Open Pulse, go to overview">
+      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><rect x="1" y="1" width="30" height="30" rx="8" fill="var(--accent)"/><path d="M5 17h5l3-7 4 13 3-8 2 2h5" fill="none" stroke="var(--accent-ink)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <div><b>Open Pulse</b><span>Live public data, no sign-up</span></div>
+    </a>
+    <div class="controls">
+      <div class="city">
+        <button id="city-btn" class="btn" aria-expanded="false" aria-controls="city-pop"><span class="lbl">Place</span><span id="city-name">Mumbai</span></button>
+        <div id="city-pop" class="pop" hidden>
+          <label class="field" for="city-q"><span>Search for a city</span><input id="city-q" class="inp" type="search" placeholder="Pune, London, Tokyo…" autocomplete="off"></label>
+          <ul id="city-res" aria-label="Matching places"></ul>
+          <button id="city-geo" class="btn sm" type="button">Use my location</button>
+        </div>
+      </div>
+      <button id="search-btn" class="btn" type="button" aria-label="Search (Ctrl+K)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>Search<kbd class="kbd">Ctrl K</kbd></button>
+      <label class="sr" for="cur-sel">Currency</label>
+      <select id="cur-sel" class="btn" title="Currency for prices"></select>
+      <button id="refresh" class="btn" type="button" title="Refresh this page’s data"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 4v7h-7"/></svg>Refresh</button>
+      <button id="share" class="btn" type="button" title="Copy a link to this page and place"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>Share</button>
+      <button id="install" class="btn" type="button" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0-4-4m4 4 4-4M4 21h16"/></svg>Install app</button>
+      <button id="theme" class="btn" type="button" aria-label="Change theme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg><span id="theme-lbl">Auto</span></button>
+    </div>
+  </div>
+</header>
+
+<div id="offline" class="offline" role="status" hidden>You’re offline. Showing the last data saved on this device; it refreshes when you reconnect.</div>
+<div id="toasts" aria-live="polite"></div>
+<dialog id="palette" aria-label="Search Open Pulse">
+  <div class="pal-in"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="pal-q" type="search" role="combobox" aria-expanded="true" aria-controls="pal-list" aria-autocomplete="list" aria-label="Search" placeholder="Pages, places, countries, coins, currencies…" autocomplete="off"></div>
+  <ul id="pal-list" role="listbox" aria-label="Results"></ul>
+  <div class="pal-foot">↑ ↓ to move · Enter to open · Esc to close</div>
+</dialog>
+<div class="shell">
+  <nav class="side" aria-label="Data areas"><ul id="nav"></ul>
+    <p class="side-note">Every panel names its source and refreshes on its own. Nothing to sign up for, no keys, no cookies.</p>
+  </nav>
+  <main id="main"></main>
+</div>
+<footer>
+  <p>Data from <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> (CC BY 4.0), <a href="https://www.coingecko.com/" target="_blank" rel="noopener">CoinGecko</a>, <a href="https://frankfurter.dev/" target="_blank" rel="noopener">Frankfurter</a> (European Central Bank reference rates), <a href="https://earthquake.usgs.gov/" target="_blank" rel="noopener">USGS</a>, <a href="https://wheretheiss.at/" target="_blank" rel="noopener">Where the ISS at?</a>, <a href="https://data.worldbank.org/" target="_blank" rel="noopener">World Bank Open Data</a>, <a href="https://news.ycombinator.com/" target="_blank" rel="noopener">Hacker News</a> and <a href="https://api.wikimedia.org/" target="_blank" rel="noopener">Wikimedia</a>. Map tiles © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors.</p>
+  <p>Figures are for information only and may be delayed. Crypto prices are not investment advice.</p>
+</footer>
+
+<script>
+(() => {
+'use strict';
+
+/* ---------- helpers ---------- */
+const $ = (s, r = document) => r.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const safeUrl = u => { try { const x = new URL(u); return /^https?:$/.test(x.protocol) ? esc(x.href) : '#'; } catch { return '#'; } };
+const RM = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const fin = n => n !== null && n !== undefined && n !== '' && Number.isFinite(+n);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const debounce = (fn, ms = 450) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('openpulse.' + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem('openpulse.' + k, JSON.stringify(v)); } catch {} }
+};
+const WD = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const dayShort = iso => { const d = new Date(iso.slice(0, 10) + 'T12:00'); return WD[d.getDay()] + ' ' + d.getDate(); };
+const hourLbl = iso => iso.slice(11, 16);
+const isoDate = d => d.toISOString().slice(0, 10);
+const regionName = (() => { let dn; try { dn = new Intl.DisplayNames(['en'], { type: 'region' }); } catch {} return c => { try { return dn ? dn.of(c) : c; } catch { return c; } }; })();
+const currencyName = (() => { let dn; try { dn = new Intl.DisplayNames(['en'], { type: 'currency' }); } catch {} return c => { try { return dn ? dn.of(c) : c; } catch { return c; } }; })();
+
+function fmtNum(n, d = 0) { return fin(n) ? (+n).toLocaleString(undefined, { maximumFractionDigits: d, minimumFractionDigits: d }) : '—'; }
+function fmtCompact(n, d = 2) { return fin(n) ? new Intl.NumberFormat(undefined, { notation: 'compact', maximumFractionDigits: d }).format(+n) : '—'; }
+function fmtMoney(n, cur = settings.currency, compact = false) {
+  if (!fin(n)) return '—';
+  const a = Math.abs(n);
+  if (compact) return new Intl.NumberFormat(undefined, { style: 'currency', currency: cur, notation: 'compact', maximumFractionDigits: 2 }).format(n);
+  const d = a >= 1000 ? 0 : a >= 1 ? 2 : a >= 0.01 ? 4 : 6;
+  return new Intl.NumberFormat(undefined, { style: 'currency', currency: cur, maximumFractionDigits: d, minimumFractionDigits: Math.min(d, 2) }).format(n);
+}
+function delta(p, digits = 2) {
+  if (!fin(p)) return '<span class="delta">—</span>';
+  const up = +p >= 0;
+  return `<span class="delta ${up ? 'up' : 'down'}"><b aria-hidden="true">${up ? '▲' : '▼'}</b><span class="sr">${up ? 'up' : 'down'} </span>${Math.abs(p).toFixed(digits)}%</span>`;
+}
+function ago(ts) {
+  const s = Math.round((Date.now() - ts) / 1000);
+  if (s < 10) return 'just now';
+  if (s < 60) return s + ' s ago';
+  const m = Math.round(s / 60); if (m < 60) return m + ' min ago';
+  const h = Math.round(m / 60); if (h < 48) return h + ' h ago';
+  return Math.round(h / 24) + ' days ago';
+}
+function hexA(hex, a) {
+  const h = hex.replace('#', '');
+  if (h.length !== 6) return hex;
+  return `rgba(${parseInt(h.slice(0, 2), 16)},${parseInt(h.slice(2, 4), 16)},${parseInt(h.slice(4, 6), 16)},${a})`;
+}
+function spark(vals, color, w = 100, h = 30) {
+  const v = vals.filter(fin).map(Number);
+  if (v.length < 2) return '';
+  const mn = Math.min(...v), mx = Math.max(...v), r = (mx - mn) || 1, step = w / (v.length - 1);
+  const pts = v.map((y, i) => `${(i * step).toFixed(1)},${(h - 3 - (y - mn) / r * (h - 6)).toFixed(1)}`).join(' ');
+  return `<svg class="spark" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}" aria-hidden="true"><polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
+}
+
+async function getJSON(url, ms = 15000) {
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), ms);
+  try {
+    const r = await fetch(url, { signal: ctl.signal });
+    if (!r.ok) throw new Error(r.status === 429 ? 'The source is limiting requests right now. It will try again shortly.' : `The source answered with an error (HTTP ${r.status}).`);
+    return await r.json();
+  } catch (e) {
+    if (e.name === 'AbortError') throw new Error('The source took too long to answer.');
+    if (e instanceof TypeError) throw new Error('Couldn’t reach the source. Check your connection.');
+    throw e;
+  } finally { clearTimeout(t); }
+}
+
+/* ---------- settings ---------- */
+const CURRENCIES = ['INR', 'USD', 'EUR', 'GBP', 'JPY', 'AUD', 'CAD', 'SGD', 'CHF', 'CNY'];
+const FX_ALL = ['AUD', 'BRL', 'CAD', 'CHF', 'CNY', 'CZK', 'DKK', 'EUR', 'GBP', 'HKD', 'HUF', 'IDR', 'ILS', 'INR', 'ISK', 'JPY', 'KRW', 'MXN', 'MYR', 'NOK', 'NZD', 'PHP', 'PLN', 'RON', 'SEK', 'SGD', 'THB', 'TRY', 'USD', 'ZAR'];
+const FX_MAJOR = ['USD', 'EUR', 'GBP', 'JPY', 'CNY', 'AUD', 'CAD', 'CHF', 'SGD', 'INR'];
+const settings = {
+  city: store.get('city', { name: 'Mumbai', region: 'Maharashtra, India', lat: 19.0761, lon: 72.8775 }),
+  currency: store.get('currency', 'INR'),
+  theme: store.get('theme', 'auto'),
+  coin: store.get('coin', 'bitcoin'),
+  fxPair: store.get('fxPair', null),
+  fxRange: store.get('fxRange', '3M'),
+  quakeLevel: store.get('quakeLevel', '2.5'),
+  quakePeriod: store.get('quakePeriod', 'day'),
+  quakeSort: store.get('quakeSort', 'time'),
+  hnList: store.get('hnList', 'top'),
+  wikiLang: store.get('wikiLang', 'en'),
+  wbIndicator: store.get('wbIndicator', 'NY.GDP.MKTP.CD'),
+  wbCountries: store.get('wbCountries', [{ id: 'IND', i2: 'IN', name: 'India', slot: 0 }, { id: 'USA', i2: 'US', name: 'United States', slot: 1 }, { id: 'CHN', i2: 'CN', name: 'China', slot: 2 }]),
+  follow: store.get('follow', true),
+  pins: store.get('pins', ['brief', 'air', 'best', 'places', 'crypto']),
+  places: store.get('places', [
+    { name: 'Delhi', region: 'Delhi, India', lat: 28.6139, lon: 77.209, slot: 0 },
+    { name: 'Mumbai', region: 'Maharashtra, India', lat: 19.0761, lon: 72.8775, slot: 1 },
+    { name: 'Bengaluru', region: 'Karnataka, India', lat: 12.9716, lon: 77.5946, slot: 2 },
+    { name: 'London', region: 'England, United Kingdom', lat: 51.5074, lon: -0.1278, slot: 3 },
+    { name: 'New York', region: 'New York, United States', lat: 40.7128, lon: -74.006, slot: 4 }
+  ]),
+  alerts: store.get('alerts', null),
+  showEvents: store.get('showEvents', true) !== false,
+  country: store.get('country', 'IND')
+};
+// Stored values come from the visitor's browser and may be stale or edited by hand: keep only well-formed ones.
+const DEF_CITY = { name: 'Mumbai', region: 'Maharashtra, India', lat: 19.0761, lon: 72.8775 };
+const c0 = settings.city;
+settings.city = c0 && typeof c0 === 'object' && fin(c0.lat) && fin(c0.lon) && Math.abs(c0.lat) <= 90 && Math.abs(c0.lon) <= 180
+  ? { name: String(c0.name || 'Selected place').slice(0, 80), region: String(c0.region || '').slice(0, 120), lat: +c0.lat, lon: +c0.lon } : DEF_CITY;
+if (!CURRENCIES.includes(settings.currency)) settings.currency = 'INR';
+if (!['auto', 'light', 'dark'].includes(settings.theme)) settings.theme = 'auto';
+if (!['2.5', '4.5', '1.0', 'all', 'significant'].includes(settings.quakeLevel)) settings.quakeLevel = '2.5';
+if (!['hour', 'day', 'week', 'month'].includes(settings.quakePeriod)) settings.quakePeriod = 'day';
+if (!['time', 'mag'].includes(settings.quakeSort)) settings.quakeSort = 'time';
+if (!['top', 'new', 'best', 'ask', 'show'].includes(settings.hnList)) settings.hnList = 'top';
+if (!['en', 'de', 'fr', 'es', 'it', 'ru', 'ja'].includes(settings.wikiLang)) settings.wikiLang = 'en';
+if (!['1M', '3M', '1Y', '5Y'].includes(settings.fxRange)) settings.fxRange = '3M';
+if (typeof settings.coin !== 'string') settings.coin = 'bitcoin';
+settings.follow = settings.follow !== false;
+settings.wbCountries = (Array.isArray(settings.wbCountries) ? settings.wbCountries : [])
+  .filter(c => c && /^[A-Z0-9]{2,3}$/.test(c.id) && Number.isInteger(c.slot) && c.slot >= 0 && c.slot < 8)
+  .filter((c, i, a) => a.findIndex(x => x.id === c.id || x.slot === c.slot) === i).slice(0, 6)
+  .map(c => ({ id: c.id, i2: /^[A-Z0-9]{2}$/.test(c.i2) ? c.i2 : '', name: String(c.name || c.id).slice(0, 80), slot: c.slot }));
+const PIN_IDS = ['brief', 'weather', 'air', 'aqnow', 'best', 'aqfc', 'aqtrend', 'places', 'climate', 'events', 'crypto', 'fx', 'quake', 'iss', 'spacewx', 'launches', 'country', 'hn', 'wiki', 'econ'];
+if (typeof settings.country !== 'string' || !/^[A-Z0-9]{3}$/.test(settings.country)) settings.country = 'IND';
+settings.pins = (Array.isArray(settings.pins) ? settings.pins : []).filter((p, i, a) => PIN_IDS.includes(p) && a.indexOf(p) === i);
+settings.places = (Array.isArray(settings.places) ? settings.places : [])
+  .filter(p => p && fin(p.lat) && fin(p.lon) && Math.abs(p.lat) <= 90 && Math.abs(p.lon) <= 180 && Number.isInteger(p.slot) && p.slot >= 0 && p.slot < 8)
+  .filter((p, i, a) => a.findIndex(x => x.slot === p.slot) === i).slice(0, 8)
+  .map(p => ({ name: String(p.name || 'Place').slice(0, 80), region: String(p.region || '').slice(0, 120), lat: +p.lat, lon: +p.lon, slot: p.slot }));
+const al = settings.alerts && typeof settings.alerts === 'object' ? settings.alerts : {};
+settings.alerts = {
+  aqi: { on: !!(al.aqi && al.aqi.on), above: fin(al.aqi && al.aqi.above) ? Math.min(500, Math.max(1, Math.round(al.aqi.above))) : 150 },
+  quake: { on: !!(al.quake && al.quake.on), min: fin(al.quake && al.quake.min) ? Math.min(9.5, Math.max(4.5, +al.quake.min)) : 6 },
+  bg: !!al.bg,
+  coin: { on: !!(al.coin && al.coin.on), pct: fin(al.coin && al.coin.pct) ? Math.min(90, Math.max(1, +al.coin.pct)) : 5, id: typeof (al.coin && al.coin.id) === 'string' && /^[a-z0-9-]{1,64}$/.test(al.coin.id) ? al.coin.id : 'bitcoin' }
+};
+const save = k => store.set(k, settings[k]);
+const fxPair = () => { let p = settings.fxPair; if (!p || p === settings.currency || !FX_ALL.includes(p)) p = settings.currency === 'USD' ? 'EUR' : 'USD'; return p; };
+const rangeStart = r => { const days = { '1M': 31, '3M': 92, '1Y': 366, '5Y': 1827 }[r] || 92; return isoDate(new Date(Date.now() - days * 864e5)); };
+
+const WB_IND = [
+  { id: 'NY.GDP.MKTP.CD', name: 'GDP', unit: 'usd', note: 'current US$' },
+  { id: 'NY.GDP.PCAP.CD', name: 'GDP per person', unit: 'usd', note: 'current US$' },
+  { id: 'NY.GDP.MKTP.KD.ZG', name: 'GDP growth', unit: 'pct', note: 'annual %' },
+  { id: 'FP.CPI.TOTL.ZG', name: 'Inflation', unit: 'pct', note: 'consumer prices, annual %' },
+  { id: 'SL.UEM.TOTL.ZS', name: 'Unemployment', unit: 'pct', note: '% of labour force, ILO estimate' },
+  { id: 'SP.POP.TOTL', name: 'Population', unit: 'num', note: 'total' },
+  { id: 'SP.DYN.LE00.IN', name: 'Life expectancy', unit: 'yrs', note: 'at birth' },
+  { id: 'IT.NET.USER.ZS', name: 'Internet users', unit: 'pct', note: '% of population' },
+  { id: 'EG.ELC.ACCS.ZS', name: 'Access to electricity', unit: 'pct', note: '% of population' },
+  { id: 'EG.FEC.RNEW.ZS', name: 'Renewable energy', unit: 'pct', note: '% of final energy use' },
+  { id: 'SH.XPD.CHEX.GD.ZS', name: 'Health spending', unit: 'pct', note: '% of GDP' },
+  { id: 'NE.EXP.GNFS.ZS', name: 'Exports', unit: 'pct', note: '% of GDP' }
+];
+const wbInd = () => WB_IND.find(i => i.id === settings.wbIndicator) || WB_IND[0];
+function fmtInd(v, unit) {
+  if (!fin(v)) return '—';
+  if (unit === 'usd') return '$' + fmtCompact(v, 2);
+  if (unit === 'pct') return (+v).toFixed(1) + '%';
+  if (unit === 'yrs') return (+v).toFixed(1) + ' yrs';
+  return fmtCompact(v, 2);
+}
+const SERIES = ['--s1', '--s2', '--s3', '--s4', '--s5', '--s6', '--s7', '--s8'];
+
+/* ---------- data sources ---------- */
+let issTrail = [];
+const SRC = {
+  weather: { name: 'Open-Meteo', home: 'https://open-meteo.com/', ttl: 10 * 60e3, load: () => {
+    const c = settings.city;
+    return getJSON(`https://api.open-meteo.com/v1/forecast?latitude=${c.lat}&longitude=${c.lon}&current=temperature_2m,apparent_temperature,relative_humidity_2m,wind_speed_10m,wind_direction_10m,precipitation,weather_code,is_day,pressure_msl&hourly=temperature_2m,precipitation_probability,uv_index,apparent_temperature,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,uv_index_max,precipitation_sum,precipitation_probability_max&timezone=auto&forecast_days=7`);
+  } },
+  aqi: { name: 'Open-Meteo Air Quality', home: 'https://open-meteo.com/en/docs/air-quality-api', ttl: 30 * 60e3, load: () => {
+    const c = settings.city;
+    // Past 92 days feed the 3-month calendar; the next 5 days feed the forecast and best-time cards.
+    return getJSON(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${c.lat}&longitude=${c.lon}&current=us_aqi,us_aqi_pm2_5,us_aqi_pm10,us_aqi_ozone,us_aqi_nitrogen_dioxide,us_aqi_sulphur_dioxide,us_aqi_carbon_monoxide,pm2_5,pm10,ozone,nitrogen_dioxide,sulphur_dioxide,carbon_monoxide&hourly=us_aqi&past_days=92&forecast_days=5&timezone=auto`, 25000);
+  } },
+  places: { name: 'Open-Meteo', home: 'https://open-meteo.com/', ttl: 15 * 60e3, load: async () => {
+    const P = settings.places; if (!P.length) return { list: [] };
+    const lat = P.map(p => p.lat).join(','), lon = P.map(p => p.lon).join(',');
+    const [w, a] = await Promise.all([
+      getJSON(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code&forecast_days=1&timezone=auto`),
+      getJSON(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${lat}&longitude=${lon}&current=us_aqi,pm2_5&hourly=us_aqi&forecast_days=5&timezone=auto`, 25000)
+    ]);
+    const W = Array.isArray(w) ? w : [w], A = Array.isArray(a) ? a : [a];
+    return { list: P.map((p, i) => ({ ...p, w: W[i], a: A[i] })) };
+  } },
+  climate: { name: 'Open-Meteo historical weather (ERA5)', home: 'https://open-meteo.com/en/docs/historical-weather-api', ttl: 24 * 3600e3, load: async () => {
+    // 30 years of daily highs and lows, averaged by calendar date and smoothed over a week; cached per place in this browser.
+    const c = settings.city, key = `clim:${(+c.lat).toFixed(2)},${(+c.lon).toFixed(2)}`, hit = store.get(key, null);
+    if (hit && hit.v === 1 && hit.norm) return hit;
+    const d = await getJSON(`https://archive-api.open-meteo.com/v1/archive?latitude=${c.lat}&longitude=${c.lon}&start_date=1991-01-01&end_date=2020-12-31&daily=temperature_2m_max,temperature_2m_min&timezone=auto`, 45000);
+    const acc = {};
+    d.daily.time.forEach((t, i) => { const hi = d.daily.temperature_2m_max[i], lo = d.daily.temperature_2m_min[i]; if (!fin(hi) || !fin(lo)) return; const a = acc[t.slice(5)] || (acc[t.slice(5)] = [0, 0, 0]); a[0] += hi; a[1] += lo; a[2]++; });
+    const mds = Object.keys(acc).sort(), norm = {};
+    mds.forEach((md, i) => { let h = 0, l = 0, n = 0; for (let k = -3; k <= 3; k++) { const a = acc[mds[(i + k + mds.length) % mds.length]]; h += a[0]; l += a[1]; n += a[2]; } norm[md] = [+(h / n).toFixed(1), +(l / n).toFixed(1)]; });
+    const out = { v: 1, norm }; store.set(key, out); return out;
+  } },
+  events: { name: 'NASA EONET', home: 'https://eonet.gsfc.nasa.gov/', ttl: 30 * 60e3, load: async () => (await getJSON('https://eonet.gsfc.nasa.gov/api/v3/events?status=open&days=60', 25000)).events || [] },
+  qalert: { name: 'USGS Earthquake Hazards Program', home: 'https://earthquake.usgs.gov/', ttl: 3 * 60e3, load: () => getJSON('https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_day.geojson') },
+  crypto: { name: 'CoinGecko', home: 'https://www.coingecko.com/', ttl: 2 * 60e3, load: async () => {
+    const q = `vs_currency=${settings.currency.toLowerCase()}&sparkline=true&price_change_percentage=1h,24h,7d`;
+    const rows = await getJSON(`https://api.coingecko.com/api/v3/coins/markets?${q}&order=market_cap_desc&per_page=20&page=1`);
+    // A coin picked from search may sit outside the top 20: fetch it too so it can be shown and charted.
+    if (settings.coin && !rows.some(r => r.id === settings.coin)) rows.push(...await getJSON(`https://api.coingecko.com/api/v3/coins/markets?${q}&ids=${encodeURIComponent(settings.coin)}`).catch(() => []));
+    return rows;
+  } },
+  // The markets sparkline is always in US dollars, so the selected coin's chart is fetched in the chosen currency.
+  coinChart: { name: 'CoinGecko', home: 'https://www.coingecko.com/', ttl: 5 * 60e3, load: async () => {
+    const id = settings.coin, cur = settings.currency;
+    const d = await getJSON(`https://api.coingecko.com/api/v3/coins/${encodeURIComponent(id)}/market_chart?vs_currency=${cur.toLowerCase()}&days=7`);
+    return { id, cur, prices: (d.prices || []).filter(p => fin(p[1])) };
+  } },
+  cglobal: { name: 'CoinGecko', home: 'https://www.coingecko.com/en/global-charts', ttl: 5 * 60e3, load: async () => (await getJSON('https://api.coingecko.com/api/v3/global')).data },
+  fx: { name: 'Frankfurter · ECB reference rates', home: 'https://frankfurter.dev/', ttl: 60 * 60e3, load: async () => {
+    // ECB publishes rates against the euro; asking for another base returns rounded figures, so cross them here instead.
+    const d = await getJSON('https://api.frankfurter.dev/v1/latest');
+    const R = { ...d.rates, EUR: 1 }, B = settings.currency;
+    if (!R[B]) throw new Error(`No reference rate for ${B} today.`);
+    const rates = {};
+    Object.keys(R).forEach(c => { if (c !== B) rates[c] = R[c] / R[B]; });
+    return { date: d.date, base: B, rates };
+  } },
+  fxHist: { name: 'Frankfurter · ECB reference rates', home: 'https://frankfurter.dev/', ttl: 60 * 60e3, load: async () => {
+    const pair = fxPair(), range = settings.fxRange;
+    const d = await getJSON(`https://api.frankfurter.dev/v1/${rangeStart(range)}..?base=${pair}&symbols=${settings.currency}`);
+    return { pair, base: settings.currency, range, rates: d.rates || {} };
+  } },
+  quakes: { name: 'USGS Earthquake Hazards Program', home: 'https://earthquake.usgs.gov/earthquakes/map/', ttl: 2 * 60e3, load: () =>
+    getJSON(`https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/${settings.quakeLevel}_${settings.quakePeriod}.geojson`, 25000) },
+  iss: { name: 'Where the ISS at?', home: 'https://wheretheiss.at/', ttl: 5e3, load: async () => {
+    const p = await getJSON('https://api.wheretheiss.at/v1/satellites/25544');
+    issTrail.push([p.latitude, p.longitude, p.timestamp]);
+    const cut = p.timestamp - 45 * 60;
+    issTrail = issTrail.filter(t => t[2] >= cut);
+    return p;
+  } },
+  issPath: { name: 'Where the ISS at?', home: 'https://wheretheiss.at/', ttl: 10 * 60e3, load: async () => {
+    const now = Math.floor(Date.now() / 1000), step = 300;
+    const batch = offs => getJSON(`https://api.wheretheiss.at/v1/satellites/25544/positions?timestamps=${offs.map(o => now + o * step).join(',')}`);
+    const past = await batch([-9, -8, -7, -6, -5, -4, -3, -2, -1, 0]);
+    await sleep(1100);
+    const f1 = await batch([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    await sleep(1100);
+    const f2 = await batch([11, 12, 13, 14, 15, 16, 17, 18, 19]);
+    const llt = a => a.map(p => [p.latitude, p.longitude, p.timestamp]);
+    return { past: llt(past), future: llt([past[past.length - 1], ...f1, ...f2]) };
+  } },
+  issWhere: { name: 'Where the ISS at?', home: 'https://wheretheiss.at/', ttl: 60e3, load: async () => {
+    const p = S.data.iss || await getJSON('https://api.wheretheiss.at/v1/satellites/25544');
+    await sleep(600);
+    return getJSON(`https://api.wheretheiss.at/v1/coordinates/${(+p.latitude).toFixed(3)},${(+p.longitude).toFixed(3)}`);
+  } },
+  hn: { name: 'Hacker News', home: 'https://news.ycombinator.com/', ttl: 5 * 60e3, load: async () => {
+    const ids = await getJSON(`https://hacker-news.firebaseio.com/v0/${settings.hnList}stories.json`);
+    const items = await Promise.all((ids || []).slice(0, 30).map(id => getJSON(`https://hacker-news.firebaseio.com/v0/item/${id}.json`).catch(() => null)));
+    return { list: settings.hnList, items: items.filter(i => i && !i.deleted && !i.dead) };
+  } },
+  wiki: { name: 'Wikimedia feed', home: 'https://api.wikimedia.org/wiki/Feed_API', ttl: 60 * 60e3, load: async () => {
+    const url = d => `https://api.wikimedia.org/feed/v1/wikipedia/${settings.wikiLang}/featured/${d.getUTCFullYear()}/${String(d.getUTCMonth() + 1).padStart(2, '0')}/${String(d.getUTCDate()).padStart(2, '0')}`;
+    const today = new Date();
+    const feed = await getJSON(url(today));
+    // The most-read list is published a day or two late; step back up to three days to find the latest one.
+    for (let back = 1; !feed.mostread && back <= 3; back++) {
+      const prev = await getJSON(url(new Date(today - back * 864e5))).catch(() => null);
+      if (prev && prev.mostread) feed.mostread = prev.mostread;
+    }
+    return feed;
+  } },
+  wbCountries: { name: 'World Bank Open Data', home: 'https://data.worldbank.org/', ttl: Infinity, load: async () => {
+    const res = await getJSON('https://api.worldbank.org/v2/country?format=json&per_page=400', 25000);
+    const keepAgg = ['WLD', 'EUU', 'SAS', 'EAS', 'SSF', 'LCN', 'MEA', 'NAC', 'ECS', 'HIC', 'LMC', 'LIC', 'UMC'];
+    return (res[1] || []).filter(r => r.region && (r.region.value.trim() !== 'Aggregates' || keepAgg.includes(r.id)))
+      .map(r => ({ id: r.id, i2: r.iso2Code, name: r.name.trim(), agg: r.region.value.trim() === 'Aggregates', capital: (r.capitalCity || '').trim(), lat: parseFloat(r.latitude), lon: parseFloat(r.longitude), region: r.region.value.trim(), income: r.incomeLevel ? r.incomeLevel.value.trim() : '' }))
+      .sort((a, b) => (a.agg - b.agg) || a.name.localeCompare(b.name));
+  } },
+  wb: { name: 'World Bank Open Data', home: 'https://data.worldbank.org/', ttl: 6 * 3600e3, load: async () => {
+    const ids = settings.wbCountries.map(c => c.id);
+    const ind = settings.wbIndicator;
+    if (!ids.length) return { ind, rows: [] };
+    const res = await getJSON(`https://api.worldbank.org/v2/country/${ids.join(';')}/indicator/${ind}?format=json&date=1990:${new Date().getFullYear()}&per_page=2000`, 25000);
+    if (res[0] && res[0].message) throw new Error(res[0].message.map(m => m.value).join(' ') || 'The World Bank did not return this series.');
+    return { ind, rows: res[1] || [] };
+  } }
+};
+
+/* ---------- state ---------- */
+const S = { data: {}, at: {}, status: {}, err: {}, req: {}, fail: {} };
+let seq = 0;
+async function load(key) {
+  const token = ++seq;
+  S.req[key] = token; S.status[key] = 'loading';
+  notify(key);
+  try {
+    const d = await SRC[key].load();
+    if (S.req[key] !== token) return;
+    S.data[key] = d; S.at[key] = Date.now(); S.status[key] = 'ok'; S.err[key] = null;
+    try { checkAlerts(key); } catch (e) { console.warn('[Open Pulse] alerts', e); }
+  } catch (e) {
+    if (S.req[key] !== token) return;
+    S.status[key] = 'error'; S.err[key] = e.message || String(e); S.fail[key] = Date.now();
+    console.warn('[Open Pulse]', key, e);
+  }
+  notify(key);
+}
+function invalidate(keys) {
+  keys.forEach(k => { delete S.data[k]; delete S.at[k]; S.req[k] = ++seq; S.status[k] = undefined; S.err[k] = null; });
+  keys.forEach(k => { if (current && viewKeys(current).includes(k)) load(k); else notify(k); });
+}
+// The scheduler ticks every 5 s; the 1 s slack lets a 5 s source refresh on every tick instead of every other one.
+const ttlOf = k => (k === 'iss' ? (currentId === 'space' ? 5e3 : 30e3) : SRC[k].ttl) - 1000;
+function ensure(k) {
+  if (S.status[k] === 'loading') return;
+  if (S.status[k] === 'error' && Date.now() - (S.fail[k] || 0) < 60e3) return;
+  if (S.data[k] === undefined || Date.now() - (S.at[k] || 0) > ttlOf(k)) load(k);
+}
+
+/* ---------- region helpers ---------- */
+function gate(keys) {
+  const missing = keys.filter(k => S.data[k] === undefined);
+  if (!missing.length) return null;
+  const ek = missing.find(k => S.status[k] === 'error');
+  if (ek) return `<div class="state err" role="alert"><strong>${esc(SRC[ek].name)} didn’t load.</strong><span>${esc(S.err[ek])}</span><button class="btn sm" type="button" data-retry="${ek}">Try again</button></div>`;
+  return '<div class="state" aria-busy="true"><span class="sk tall"></span><span class="sk"></span><span class="sk short"></span></div>';
+}
+function srcLine(keys, label) {
+  const s = SRC[keys[0]];
+  const at = Math.max(0, ...keys.map(k => S.at[k] || 0));
+  const busy = keys.some(k => S.status[k] === 'loading');
+  const failed = keys.some(k => S.status[k] === 'error' && S.data[k] !== undefined);
+  return `<div class="src"><span>Source: <a href="${s.home}" target="_blank" rel="noopener">${esc(label || s.name)}</a></span><span>${at ? `Updated <span data-at="${at}">${ago(at)}</span>` : ''}${busy ? ' · <span class="spin">refreshing</span>' : ''}${failed ? ' · <span class="warn-t">last refresh failed, showing earlier data</span>' : ''}</span></div>`;
+}
+function head(title, aside = '') { return `<div class="ph"><h2>${title}</h2>${aside ? `<span class="aside">${aside}</span>` : ''}</div>`; }
+
+/* ---------- charts ---------- */
+const charts = {};
+function killChart(id) { if (charts[id]) { charts[id].destroy(); delete charts[id]; } }
+const crosshair = {
+  id: 'crosshair',
+  afterDatasetsDraw(chart) {
+    const act = chart.tooltip && chart.tooltip.getActiveElements ? chart.tooltip.getActiveElements() : [];
+    if (!act.length) return;
+    const x = act[0].element.x, { top, bottom } = chart.chartArea, c = chart.ctx;
+    c.save(); c.strokeStyle = css('--line-strong'); c.lineWidth = 1; c.beginPath(); c.moveTo(x, top); c.lineTo(x, bottom); c.stroke(); c.restore();
+  }
+};
+// Shades the US AQI category bands behind an AQI chart.
+const AQ_BANDS = [[0, 50, '--aq1'], [50, 100, '--aq2'], [100, 150, '--aq3'], [150, 200, '--aq4'], [200, 300, '--aq5'], [300, 500, '--aq6']];
+const aqiBands = {
+  id: 'aqiBands',
+  beforeDatasetsDraw(chart) {
+    const { ctx, chartArea: a, scales: { y } } = chart; if (!y || !a) return;
+    ctx.save();
+    AQ_BANDS.forEach(([lo, hi, v]) => { const top = Math.max(a.top, y.getPixelForValue(hi)), bot = Math.min(a.bottom, y.getPixelForValue(lo)); if (bot > top) { ctx.fillStyle = hexA(css(v), 0.14); ctx.fillRect(a.left, top, a.right - a.left, bot - top); } });
+    ctx.restore();
+  }
+};
+function chartOpts({ yFmt = v => v, xFmt, tipTitle, tipLabel, yMin, yMax, legend = false, horizontal = false, allTicks = false } = {}) {
+  const muted = css('--muted'), font = { family: css('--font-data') || 'monospace', size: 11 };
+  const valueAxis = { grid: { color: css('--grid'), drawTicks: false }, border: { display: false }, ticks: { color: muted, font, maxTicksLimit: 5, padding: 8, callback: v => yFmt(v) }, min: yMin, max: yMax };
+  const catAxis = { grid: { display: false }, border: { color: css('--axis') }, ticks: { color: muted, font, maxRotation: 0, autoSkip: true, maxTicksLimit: horizontal ? 12 : 8, padding: 6 } };
+  if (xFmt) catAxis.ticks.callback = function (v) { return xFmt(this.getLabelForValue(v), v); };
+  if (allTicks) catAxis.ticks.autoSkip = false;
+  return {
+    responsive: true, maintainAspectRatio: false, animation: false, indexAxis: horizontal ? 'y' : 'x',
+    interaction: { mode: 'index', intersect: false, axis: horizontal ? 'y' : 'x' },
+    layout: { padding: { top: 4, right: 6 } },
+    plugins: {
+      legend: { display: legend },
+      tooltip: {
+        backgroundColor: css('--panel'), titleColor: css('--ink'), bodyColor: css('--ink-2'), borderColor: css('--line-strong'), borderWidth: 1,
+        padding: 10, cornerRadius: 8, titleFont: { family: css('--font-body'), weight: '600', size: 13 }, bodyFont: { family: css('--font-data'), size: 12 },
+        usePointStyle: true, boxWidth: 8, boxHeight: 8, boxPadding: 4,
+        callbacks: { title: items => items.length ? (tipTitle ? tipTitle(items[0].label, items[0].dataIndex) : items[0].label) : '', label: ctx => (tipLabel ? tipLabel(ctx) : `${ctx.dataset.label}: ${yFmt(ctx.parsed[horizontal ? 'x' : 'y'])}`) }
+      }
+    },
+    scales: horizontal ? { y: catAxis, x: valueAxis } : { x: catAxis, y: valueAxis }
+  };
+}
+function lineChart(id, canvas, labels, sets, o = {}) {
+  killChart(id);
+  canvas.setAttribute('role', 'img');
+  if (!window.Chart) { canvas.replaceWith(Object.assign(document.createElement('p'), { className: 'muted', textContent: 'Charts need the Chart.js library, which didn’t load.' })); return; }
+  charts[id] = new Chart(canvas, {
+    type: 'line',
+    data: { labels, datasets: sets.map(s => ({ label: s.label, data: s.data, borderColor: s.color, backgroundColor: s.fill ? hexA(s.color, 0.13) : s.color, fill: s.fill ? 'origin' : false, borderWidth: 2, pointRadius: 0, pointHoverRadius: 4.5, pointHoverBorderWidth: 2, pointHoverBorderColor: css('--panel'), pointHoverBackgroundColor: s.color, tension: 0.25, spanGaps: true, borderDash: s.dash || [] })) },
+    options: chartOpts(o), plugins: o.bands ? [aqiBands, crosshair] : [crosshair]
+  });
+}
+function barChart(id, canvas, labels, data, color, o = {}) {
+  killChart(id);
+  canvas.setAttribute('role', 'img');
+  if (!window.Chart) return;
+  charts[id] = new Chart(canvas, {
+    type: 'bar',
+    data: { labels, datasets: [{ label: o.label || '', data, backgroundColor: color, hoverBackgroundColor: color, borderRadius: 4, borderSkipped: 'start', categoryPercentage: 0.86, barPercentage: 0.9, maxBarThickness: 28 }] },
+    options: chartOpts(o)
+  });
+}
+
+/* ---------- maps ---------- */
+const maps = {};
+function makeMap(el, view = [20, 10], zoom = 2) {
+  if (!window.L) { el.innerHTML = '<p class="muted" style="padding:16px">The map library didn’t load, so the map can’t be shown. The figures beside it still update.</p>'; return null; }
+  const z = el.clientWidth < 520 ? Math.min(zoom, 1) : el.clientWidth < 900 ? Math.min(zoom, 1.5) : zoom;
+  const m = L.map(el, { worldCopyJump: true, minZoom: 1, maxZoom: 10, zoomSnap: 0.5 }).setView(view, z);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 10, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' }).addTo(m);
+  setTimeout(() => { try { m.invalidateSize(); } catch {} }, 150);
+  if (window.ResizeObserver) new ResizeObserver(() => { try { m.invalidateSize(); } catch {} }).observe(el);
+  return m;
+}
+function killMaps() { Object.keys(maps).forEach(k => { try { maps[k].map.remove(); } catch {} delete maps[k]; }); }
+function splitWrap(points) {
+  const segs = []; let cur = [];
+  // Break the line where it crosses the 180° meridian, or where points are more than ~6 minutes apart (a gap would draw a false chord).
+  points.forEach((p, i) => {
+    const q = points[i - 1];
+    if (i && (Math.abs(p[1] - q[1]) > 180 || (p[2] && q[2] && p[2] - q[2] > 400))) { segs.push(cur); cur = []; }
+    cur.push([p[0], p[1]]);
+  });
+  if (cur.length) segs.push(cur);
+  return segs.filter(s => s.length > 1);
+}
+
+/* ---------- weather helpers ---------- */
+const WMO = { 0: 'Clear sky', 1: 'Mainly clear', 2: 'Partly cloudy', 3: 'Overcast', 45: 'Fog', 48: 'Freezing fog', 51: 'Light drizzle', 53: 'Drizzle', 55: 'Heavy drizzle', 56: 'Freezing drizzle', 57: 'Freezing drizzle', 61: 'Light rain', 63: 'Rain', 65: 'Heavy rain', 66: 'Freezing rain', 67: 'Freezing rain', 71: 'Light snow', 73: 'Snow', 75: 'Heavy snow', 77: 'Snow grains', 80: 'Light showers', 81: 'Showers', 82: 'Violent showers', 85: 'Snow showers', 86: 'Heavy snow showers', 95: 'Thunderstorm', 96: 'Thunderstorm with hail', 99: 'Thunderstorm with heavy hail' };
+const wmo = c => WMO[c] || 'Unknown';
+const compass = d => fin(d) ? ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'][Math.round(d / 45) % 8] : '';
+const uvCat = v => { if (!fin(v)) return '—'; const r = Math.round(v * 10) / 10; return `${r.toFixed(1)} · ${r < 3 ? 'Low' : r < 6 ? 'Moderate' : r < 8 ? 'High' : r < 11 ? 'Very high' : 'Extreme'}`; };
+const mag1 = m => Math.round(m * 10) / 10;
+// Index of the forecast day that matches the place's current local date.
+const todayIdx = d => Math.max(0, d.daily.time.indexOf(d.current.time.slice(0, 10)));
+function aqiCat(v) {
+  if (!fin(v)) return { t: 'No reading', s: '', l: 0, a: 'No current reading for this place.' };
+  v = Math.round(v);
+  if (v <= 50) return { l: 1, t: 'Good', s: 'good', a: 'Air quality is fine for everyone.' };
+  if (v <= 100) return { l: 2, t: 'Moderate', s: 'warn', a: 'Unusually sensitive people should limit long or heavy outdoor exertion.' };
+  if (v <= 150) return { l: 3, t: 'Unhealthy for sensitive groups', s: 'serious', a: 'Children, older adults and people with heart or lung conditions should cut back on outdoor exertion.' };
+  if (v <= 200) return { l: 4, t: 'Unhealthy', s: 'critical', a: 'Everyone should reduce long or heavy outdoor exertion.' };
+  if (v <= 300) return { l: 5, t: 'Very unhealthy', s: 'critical', a: 'Avoid outdoor exertion. Sensitive groups should stay indoors.' };
+  return { l: 6, t: 'Hazardous', s: 'critical', a: 'Stay indoors and keep activity light.' };
+}
+const pill = (text, s) => `<span class="pill ${s ? 'st-' + s : ''}"><i aria-hidden="true"></i>${esc(text)}</span>`;
+function hourIdx(d) {
+  const h = d.hourly, now = d.current.time.slice(0, 13);
+  let i0 = h.time.findIndex(t => t >= now); if (i0 < 0) i0 = 0;
+  return i0;
+}
+const magCls = m => (m = mag1(m)) >= 7 ? 'm7' : m >= 6 ? 'm6' : m >= 4 ? 'm4' : '';
+
+/* ---------- views ---------- */
+const VIEWS = [];
+const view = v => VIEWS.push(v);
+
+/* ---------- cards: shared by Overview, My dashboard and the detail pages ---------- */
+const CARDS = {};
+const card = (id, def) => { CARDS[id] = { id, ...def }; };
+function cardTop(el, title) {
+  const id = el.dataset.card, c = CARDS[id], ctx = el.dataset.ctx;
+  const open = c.href && ctx !== 'view' ? `<a class="ov-open" href="${c.href}">Open</a>` : '';
+  const csv = c.csv ? `<button type="button" class="pin" data-csv="${id}" aria-label="Download ${esc(c.name)} as a CSV file">CSV</button>` : '';
+  let ctl;
+  if (ctx === 'mine') {
+    ctl = `<span class="card-ctl"><button type="button" class="icon-btn" data-mv="${id}|-1" aria-label="Move ${esc(c.name)} earlier">←</button><button type="button" class="icon-btn" data-mv="${id}|1" aria-label="Move ${esc(c.name)} later">→</button><button type="button" class="icon-btn" data-unpin="${id}" aria-label="Remove ${esc(c.name)} from My dashboard">×</button></span>`;
+  } else {
+    const on = settings.pins.includes(id);
+    ctl = `<button type="button" class="pin" data-pin="${id}" aria-pressed="${on}" aria-label="${on ? 'Remove' : 'Add'} ${esc(c.name)} ${on ? 'from' : 'to'} My dashboard">${on ? 'Pinned' : 'Pin'}</button>`;
+  }
+  return `<div class="ph"><h2>${title}</h2><span class="aside">${open}${csv}${ctl}</span></div>`;
+}
+// Looked up when used, so a page may list a card that is defined further down the file.
+const cardRegion = (id, scope = '#main') => ({ sel: `${scope} [data-card="${id}"]`, get keys() { return CARDS[id] ? CARDS[id].keys : []; }, render: el => CARDS[id] && CARDS[id].render(el) });
+const cardHTML = (id, ctx) => `<section class="panel${CARDS[id].wide ? ' wide' : ''}" data-card="${id}" data-ctx="${ctx}"${ctx === 'mine' ? ' draggable="true"' : ''}></section>`;
+
+/* air-quality helpers */
+const SUBS = [{ k: 'pm2_5', n: 'PM2.5' }, { k: 'pm10', n: 'PM10' }, { k: 'ozone', n: 'Ozone' }, { k: 'nitrogen_dioxide', n: 'NO₂' }, { k: 'sulphur_dioxide', n: 'SO₂' }, { k: 'carbon_monoxide', n: 'CO' }];
+function mainPollutant(c) {
+  const s = SUBS.map(x => ({ n: x.n, v: c['us_aqi_' + x.k] })).filter(x => fin(x.v)).sort((a, b) => b.v - a.v)[0];
+  return s ? s.n : '';
+}
+function nowIdx(hourly, currentTime) { const now = currentTime.slice(0, 13); const i = hourly.time.findIndex(t => t >= now); return i < 0 ? 0 : i; }
+function peak24(a) { if (!a || !a.hourly) return null; const i0 = nowIdx(a.hourly, a.current.time); const v = a.hourly.us_aqi.slice(i0, i0 + 24).filter(fin); return v.length ? Math.max(...v) : null; }
+// The best two daylight hours left today (or tomorrow) for being outside: lowest AQI, ruling out likely rain, very high UV and extreme heat or cold.
+function bestWindow(wx, aq) {
+  const h = wx.hourly, nowH = wx.current.time.slice(0, 13), today = wx.current.time.slice(0, 10);
+  const aqAt = {}; aq.hourly.time.forEach((t, i) => { aqAt[t] = aq.hourly.us_aqi[i]; });
+  const pick = (day, fromNow) => h.time.map((t, i) => ({ t, i }))
+    .filter(x => x.t.slice(0, 10) === day && (!fromNow || x.t.slice(0, 13) >= nowH) && h.is_day[x.i] === 1)
+    .map(({ t, i }) => {
+      const aqi = aqAt[t], rain = h.precipitation_probability[i], uv = h.uv_index[i], feel = h.apparent_temperature[i];
+      const bad = (fin(rain) && rain >= 50) || (fin(uv) && uv >= 8) || (fin(feel) && (feel >= 40 || feel <= -5));
+      const score = (fin(aqi) ? aqi : 150) + (fin(rain) ? rain : 0) * 0.6 + (fin(uv) ? Math.max(0, uv - 5) * 12 : 0) + (fin(feel) ? Math.max(0, feel - 32) * 6 + Math.max(0, 5 - feel) * 4 : 0);
+      return { t, aqi, rain, uv, feel, bad, score, cat: aqiCat(aqi) };
+    });
+  let when = 'today', hours = pick(today, true);
+  if (hours.length < 2) { const tm = h.time.find(t => t.slice(0, 10) > today); if (tm) { when = 'tomorrow'; hours = pick(tm.slice(0, 10), false); } }
+  hours.forEach(x => { x.tip = `${x.t.slice(11, 16)} · AQI ${fin(x.aqi) ? Math.round(x.aqi) : '–'} ${x.cat.t} · rain ${fin(x.rain) ? x.rain + '%' : '–'} · UV ${fin(x.uv) ? x.uv.toFixed(0) : '–'} · feels ${fin(x.feel) ? Math.round(x.feel) + '°' : '–'}${x.bad ? ' · ruled out' : ''}`; });
+  let best = null;
+  for (let i = 0; i + 1 < hours.length; i++) {
+    const a = hours[i], b = hours[i + 1];
+    if (a.bad || b.bad || +b.t.slice(11, 13) !== +a.t.slice(11, 13) + 1) continue;
+    const s = (a.score + b.score) / 2; if (!best || s < best.s) best = { s, i };
+  }
+  if (!best) return { when, hours, win: null, note: hours.length ? 'rain, UV or heat rule out every daylight hour' : 'no daylight hours left' };
+  const a = hours[best.i], b = hours[best.i + 1]; a.inWin = b.inWin = true;
+  const end = String((+b.t.slice(11, 13) + 1) % 24).padStart(2, '0') + ':00';
+  const avg = fin(a.aqi) && fin(b.aqi) ? Math.round((a.aqi + b.aqi) / 2) : null, cat = aqiCat(avg);
+  return { when, hours, win: { label: `${a.t.slice(11, 16)}–${end}`, aqi: avg, cat, why: `AQI about ${avg ?? '–'} (${cat.t}) · rain ${Math.max(a.rain || 0, b.rain || 0)}% · UV ${Math.max(a.uv || 0, b.uv || 0).toFixed(0)}`, caution: cat.l >= 3 } };
+}
+const climNormal = date => S.data.climate?.norm?.[date.slice(5, 10)] || null;
+const diffWord = x => !fin(x) ? '' : x >= 0.5 ? `${x.toFixed(1)}° above` : x <= -0.5 ? `${(-x).toFixed(1)}° below` : 'close to';
+
+/* natural-event helpers */
+const EV = {
+  wildfires: { n: 'Wildfires', many: 'wildfires', c: '--s2' }, severeStorms: { n: 'Severe storms', many: 'severe storms', c: '--s1' },
+  volcanoes: { n: 'Volcanoes', many: 'volcanoes', c: '--s8' }, seaLakeIce: { n: 'Sea and lake ice', many: 'ice events', c: '--s3' },
+  floods: { n: 'Floods', many: 'floods', c: '--s7' }, dustHaze: { n: 'Dust and haze', many: 'dust and haze events', c: '--s4' },
+  landslides: { n: 'Landslides', many: 'landslides', c: '--s5' }, drought: { n: 'Drought', many: 'droughts', c: '--s6' }
+};
+const evCat = e => (e.categories && e.categories[0] && e.categories[0].id) || 'other';
+const evMeta = id => EV[id] || { n: 'Other events', many: 'other events', c: '--s5' };
+function evPoint(e) {
+  const g = e.geometry && e.geometry[e.geometry.length - 1]; if (!g) return null;
+  let c = g.coordinates; if (g.type === 'Polygon') c = c && c[0] && c[0][0];
+  return c && fin(c[0]) && fin(c[1]) ? { lat: +c[1], lon: +c[0], date: g.date, mag: g.magnitudeValue, unit: g.magnitudeUnit } : null;
+}
+function evCounts(list) { const n = {}; list.forEach(e => { const k = evCat(e); n[k] = (n[k] || 0) + 1; }); return n; }
+const QLVL = { 'significant': 'significant', '4.5': 'M4.5+', '2.5': 'M2.5+', '1.0': 'M1+', 'all': '' };
+
+card('brief', { name: 'Daily briefing', wide: true, keys: ['weather', 'aqi', 'climate', 'crypto', 'fx', 'quakes', 'events', 'hn', 'wiki'], render(el) {
+  const top = cardTop(el, 'Daily briefing · ' + esc(new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })));
+  const D = S.data, lines = [];
+  if (D.weather) {
+    const d = D.weather, c = d.current, t = todayIdx(d), hi = d.daily.temperature_2m_max[t], n = climNormal(d.daily.time[t]);
+    lines.push(`<p><b>${esc(settings.city.name)}:</b> ${Math.round(c.temperature_2m)}°C and ${esc(wmo(c.weather_code).toLowerCase())}, heading for a high of ${Math.round(hi)}°${n ? ` (${diffWord(hi - n[0])} the 1991–2020 average for today)` : ''} and a low of ${Math.round(d.daily.temperature_2m_min[t])}°. <a href="#weather">Weather</a></p>`);
+  }
+  if (D.aqi) {
+    const c = D.aqi.current, k = aqiCat(c.us_aqi), dom = mainPollutant(c), b = D.weather ? bestWindow(D.weather, D.aqi) : null;
+    lines.push(`<p><b>Air:</b> ${esc(k.t.toLowerCase())}${fin(c.us_aqi) ? ` (US AQI ${Math.round(c.us_aqi)})` : ''}${dom ? `, mostly from ${esc(dom)}` : ''}.${b && b.win ? ` Best time to be outside ${b.when}: ${esc(b.win.label)}.` : ''} <a href="#air">Air quality</a></p>`);
+  }
+  const mk = [];
+  if (D.crypto && D.crypto[0]) { const r = D.crypto[0]; mk.push(`${esc(r.name)} is ${fmtMoney(r.current_price)}, ${delta(r.price_change_percentage_24h_in_currency, 1)} in 24 hours`); }
+  if (D.fx) { const p = settings.currency === 'USD' ? 'EUR' : 'USD'; if (D.fx.rates[p]) mk.push(`1 ${p} buys ${fmtMoney(1 / D.fx.rates[p])}`); }
+  if (mk.length) lines.push(`<p><b>Markets:</b> ${mk.join('; ')}. <a href="#markets">Markets</a></p>`);
+  const ea = [];
+  if (D.quakes) {
+    const f = D.quakes.features.filter(q => fin(q.properties.mag));
+    const big = f.reduce((a, b) => (!a || b.properties.mag > a.properties.mag) ? b : a, null);
+    ea.push(`${f.length} ${QLVL[settings.quakeLevel] ? QLVL[settings.quakeLevel] + ' ' : ''}earthquakes in the past ${settings.quakePeriod}${big ? `, the strongest M${mag1(big.properties.mag).toFixed(1)} ${esc(big.properties.place || '')}` : ''}`);
+  }
+  if (D.events) { const n = Object.entries(evCounts(D.events)).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([k, v]) => `${v} ${evMeta(k).many}`); if (n.length) ea.push(`NASA is tracking ${n.join(', ')}`); }
+  if (ea.length) lines.push(`<p><b>Earth:</b> ${ea.join('. ')}. <a href="#earth">Earth events</a></p>`);
+  const rd = [];
+  const hn = D.hn && D.hn.items[0]; if (hn) rd.push(`Top on Hacker News: “<a href="${hn.url ? safeUrl(hn.url) : 'https://news.ycombinator.com/item?id=' + encodeURIComponent(hn.id)}" target="_blank" rel="noopener">${esc(hn.title)}</a>”`);
+  const wk = D.wiki ? wikiTop(1)[0] : null; if (wk) rd.push(`most read on Wikipedia: <a href="${safeUrl(wk.content_urls?.desktop?.page)}" target="_blank" rel="noopener">${esc(wk.titles?.normalized || wk.title)}</a>`);
+  if (rd.length) lines.push(`<p><b>Reading:</b> ${rd.join('; ')}.</p>`);
+  el.innerHTML = top + (lines.length ? `<div class="brief">${lines.join('')}</div>` : (gate(['weather']) || ''));
+} });
+
+card('weather', { name: 'Weather', href: '#weather', keys: ['weather'], render(el) {
+  const top = cardTop(el, 'Weather · ' + esc(settings.city.name));
+  const g = gate(['weather']); if (g) return el.innerHTML = top + g;
+  const d = S.data.weather, c = d.current, t = todayIdx(d);
+  el.innerHTML = top + `<div class="now"><div class="big">${Math.round(c.temperature_2m)}°<small>C</small></div><div><div class="cond">${esc(wmo(c.weather_code))}</div><div class="muted sm">Feels like ${Math.round(c.apparent_temperature)}° · High ${Math.round(d.daily.temperature_2m_max[t])}° · Low ${Math.round(d.daily.temperature_2m_min[t])}°</div></div></div>` + srcLine(['weather']);
+} });
+
+card('air', { name: 'Air quality', href: '#air', keys: ['aqi'], render(el) {
+  const top = cardTop(el, 'Air quality · ' + esc(settings.city.name));
+  const g = gate(['aqi']); if (g) return el.innerHTML = top + g;
+  const c = S.data.aqi.current, k = aqiCat(c.us_aqi), dom = mainPollutant(c);
+  el.innerHTML = top + `<div class="now"><div class="big">${fin(c.us_aqi) ? Math.round(c.us_aqi) : '—'}<small>US AQI</small></div>${pill(k.t, 'aq' + k.l)}</div><div class="muted sm">${dom ? `Main pollutant ${esc(dom)} · ` : ''}PM2.5 ${fmtNum(c.pm2_5, 1)} µg/m³ · PM10 ${fmtNum(c.pm10, 1)} µg/m³</div>` + srcLine(['aqi']);
+} });
+
+card('aqnow', { name: 'What’s in the air', href: '#air', keys: ['aqi'], render(el) {
+  const top = cardTop(el, 'What’s in the air · ' + esc(settings.city.name));
+  const g = gate(['aqi']); if (g) return el.innerHTML = top + g;
+  const c = S.data.aqi.current, k = aqiCat(c.us_aqi), dom = mainPollutant(c);
+  const subs = SUBS.map(s => ({ ...s, v: c['us_aqi_' + s.k], raw: c[s.k] })).filter(s => fin(s.v));
+  el.innerHTML = top + `<div class="now"><div class="big">${fin(c.us_aqi) ? Math.round(c.us_aqi) : '—'}<small>US AQI</small></div><div>${pill(k.t, 'aq' + k.l)}<div class="muted sm" style="margin-top:6px;max-width:48ch">${esc(k.a)}${dom ? ` The main pollutant is ${esc(dom)}.` : ''}</div></div></div>
+    <div class="muted sm">Each pollutant’s own index. The overall AQI is the highest of these.</div><div class="chart h160"><canvas aria-label="US AQI for each pollutant"></canvas></div>
+    <dl class="kv">${subs.map(s => `<div><dt>${s.n}</dt><dd>${fmtNum(s.raw, s.k === 'carbon_monoxide' ? 0 : 1)} µg/m³</dd></div>`).join('')}</dl>` + srcLine(['aqi']);
+  barChart('aqnow-' + el.dataset.ctx, el.querySelector('canvas'), subs.map(s => s.n), subs.map(s => s.v), subs.map(s => css('--aq' + aqiCat(s.v).l)), { horizontal: true, label: 'AQI', yMin: 0, yFmt: v => Math.round(v), tipLabel: x => `AQI ${Math.round(x.parsed.x)} · ${aqiCat(x.parsed.x).t}` });
+} });
+
+card('best', { name: 'Best time to go outside', href: '#air', keys: ['weather', 'aqi'], render(el) {
+  const top = cardTop(el, 'Best time outside · ' + esc(settings.city.name));
+  const g = gate(['weather', 'aqi']); if (g) return el.innerHTML = top + g;
+  const b = bestWindow(S.data.weather, S.data.aqi);
+  el.innerHTML = top + `<div><div class="mid">${b.win ? esc(b.win.label) : 'No good window'}</div><div class="muted sm">${b.when === 'today' ? 'Today' : 'Tomorrow'} · ${esc(b.win ? b.win.why : b.note)}</div>${b.win && b.win.caution ? '<div class="sm" style="margin-top:4px">Even then the air is unhealthy for sensitive groups, so keep it short.</div>' : ''}</div>
+    ${b.hours.length ? `<ul class="hours" aria-label="Daylight hours ${b.when} with forecast AQI">${b.hours.map(h => `<li class="hr aq${h.cat.l}${h.inWin ? ' best' : ''}${h.bad ? ' bad' : ''}" title="${esc(h.tip)}"><b>${h.t.slice(11, 13)}</b><span>${fin(h.aqi) ? Math.round(h.aqi) : '–'}</span><span class="sr">${esc(h.tip)}</span></li>`).join('')}</ul>
+    <div class="muted sm">One box per daylight hour, showing its forecast AQI. Crossed-out hours are ruled out by likely rain, very high UV or extreme heat.</div>` : ''}` + srcLine(['weather', 'aqi'], 'Open-Meteo');
+} });
+
+card('aqfc', { name: 'Air forecast, 5 days', href: '#air', keys: ['aqi'], render(el) {
+  const top = cardTop(el, 'Air forecast, next 5 days · ' + esc(settings.city.name));
+  const g = gate(['aqi']); if (g) return el.innerHTML = top + g;
+  const h = S.data.aqi.hourly, i0 = nowIdx(h, S.data.aqi.current.time);
+  el.innerHTML = top + `<div class="chart h220"><canvas aria-label="Hourly US AQI forecast for the next 5 days"></canvas></div><div class="muted sm">Shaded bands are the US AQI categories, from good (bottom) upwards.</div>` + srcLine(['aqi']);
+  lineChart('aqfc-' + el.dataset.ctx, el.querySelector('canvas'), h.time.slice(i0), [{ label: 'US AQI', data: h.us_aqi.slice(i0), color: css('--ink-2') }], {
+    bands: true, allTicks: true, yMin: 0, xFmt: l => l.slice(11, 13) === '00' ? dayShort(l) : '', tipTitle: l => dayShort(l) + ', ' + hourLbl(l),
+    yFmt: v => Math.round(v), tipLabel: x => `US AQI ${Math.round(x.parsed.y)} · ${aqiCat(x.parsed.y).t}`
+  });
+} });
+
+card('aqtrend', { name: 'Air over 3 months', href: '#air', keys: ['aqi'], render(el) {
+  const top = cardTop(el, 'Air over the last 3 months · ' + esc(settings.city.name));
+  const g = gate(['aqi']); if (g) return el.innerHTML = top + g;
+  const h = S.data.aqi.hourly, today = S.data.aqi.current.time.slice(0, 10), peak = {};
+  h.time.forEach((t, i) => { const d = t.slice(0, 10), v = h.us_aqi[i]; if (d > today || !fin(v)) return; peak[d] = Math.max(peak[d] ?? -1, v); });
+  const ds = Object.keys(peak).sort(); if (!ds.length) return el.innerHTML = top + '<p class="muted">No past readings for this place.</p>';
+  const all = []; for (let d = new Date(ds[0] + 'T12:00Z'); isoDate(d) <= today; d = new Date(+d + 864e5)) all.push(isoDate(d));
+  const pad = (new Date(all[0] + 'T12:00Z').getUTCDay() + 6) % 7, counts = [0, 0, 0, 0, 0, 0, 0];
+  const NAMES = ['No data', 'Good', 'Moderate', 'Unhealthy for sensitive groups', 'Unhealthy', 'Very unhealthy', 'Hazardous'];
+  const fmtD = d => new Date(d + 'T12:00Z').toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
+  const cells = Array(pad).fill('<i class="pad"></i>').concat(all.map(d => {
+    if (!fin(peak[d])) { counts[0]++; return `<i class="aq0" title="${esc(fmtD(d))}: no data"></i>`; }
+    const k = aqiCat(peak[d]); counts[k.l]++;
+    return `<i class="aq${k.l}" title="${esc(fmtD(d))}: peak AQI ${Math.round(peak[d])}, ${esc(k.t)}"></i>`;
+  }));
+  const summary = NAMES.map((n, i) => i && counts[i] ? `${counts[i]} ${n.toLowerCase()}` : '').filter(Boolean).join(', ');
+  el.innerHTML = top + `<div class="cal-wrap"><div class="cal" role="img" aria-label="Daily peak AQI over ${all.length} days: ${esc(summary)}">${cells.join('')}</div></div>
+    <div class="legend">${NAMES.map((n, i) => i && counts[i] ? `<span><i class="aq${i}"></i>${n} <b class="mono">${counts[i]}</b></span>` : '').join('')}</div>
+    <div class="muted sm">One square per day, Monday at the top of each column, coloured by the day’s highest hourly US AQI. Modelled data from the Copernicus Atmosphere Monitoring Service.</div>` + srcLine(['aqi']);
+} });
+
+card('places', { name: 'Your places', href: '#air', wide: true, keys: ['places'], render(el) {
+  const top = cardTop(el, 'Your places');
+  if (!settings.places.length) return el.innerHTML = top + '<p class="muted">No saved places yet. Add some on the <a href="#air">Air quality</a> page.</p>';
+  const g = gate(['places']); if (g) return el.innerHTML = top + g;
+  el.innerHTML = top + `<div class="tbl"><table><thead><tr><th>Place</th><th class="num">Now</th><th>Conditions</th><th>Air now</th><th class="num">PM2.5</th><th class="num">Worst AQI, next 24 h</th><th><span class="sr">Actions</span></th></tr></thead><tbody>${S.data.places.list.map((p, i) => {
+    const w = (p.w && p.w.current) || {}, a = (p.a && p.a.current) || {}, k = aqiCat(a.us_aqi), pk = peak24(p.a), pc = aqiCat(pk), main = Math.abs(p.lat - settings.city.lat) < 0.01 && Math.abs(p.lon - settings.city.lon) < 0.01;
+    return `<tr><td><span class="sw" style="background:var(${SERIES[p.slot]})" aria-hidden="true"></span><b>${esc(p.name)}</b> <span class="muted sm">${esc(p.region || '')}</span></td><td class="num">${fin(w.temperature_2m) ? Math.round(w.temperature_2m) + '°' : '—'}</td><td>${esc(wmo(w.weather_code))}</td><td>${fin(a.us_aqi) ? `<span class="mono">${Math.round(a.us_aqi)}</span> ${pill(k.t, 'aq' + k.l)}` : '—'}</td><td class="num">${fmtNum(a.pm2_5, 1)}</td><td class="num">${fin(pk) ? `<span class="sw aq${pc.l}" aria-hidden="true"></span>${Math.round(pk)}` : '—'}</td><td>${main ? '<span class="muted sm">Main place</span>' : `<button type="button" class="btn sm" data-usep="${i}">Make main</button>`}</td></tr>`;
+  }).join('')}</tbody></table></div>` + srcLine(['places'], 'Open-Meteo');
+} });
+
+card('climate', { name: 'Today vs normal', href: '#weather', keys: ['weather', 'climate'], render(el) {
+  const top = cardTop(el, 'Compared with normal · ' + esc(settings.city.name));
+  const g = gate(['weather', 'climate']); if (g) return el.innerHTML = top + g;
+  const dl = S.data.weather.daily, t0 = todayIdx(S.data.weather), days = dl.time.slice(t0);
+  const hi = dl.temperature_2m_max.slice(t0), lo = dl.temperature_2m_min.slice(t0);
+  const nHi = days.map(d => (climNormal(d) || [null])[0]), nLo = days.map(d => (climNormal(d) || [null, null])[1]);
+  const dHi = fin(hi[0]) && fin(nHi[0]) ? hi[0] - nHi[0] : null;
+  const big = fin(dHi) ? (dHi >= 0 ? '+' : '−') + Math.abs(dHi).toFixed(1) + '°' : '—';
+  const text = fin(dHi) ? `Today’s forecast high of ${Math.round(hi[0])}°C is ${diffWord(dHi)} the 1991–2020 average high for this date (${fmtNum(nHi[0], 1)}°C).` : 'No long-term average for this date.';
+  const chart = el.dataset.ctx !== 'ov';
+  el.innerHTML = top + `<div class="now"><div class="big">${big}</div><div class="muted" style="max-width:46ch">${esc(text)}</div></div>` + (chart ? `
+    <div class="legend"><span><i style="background:${css('--s2')}"></i>Forecast high</span><span><i class="dash" style="border-color:${css('--s2')}"></i>Normal high</span><span><i style="background:${css('--s1')}"></i>Forecast low</span><span><i class="dash" style="border-color:${css('--s1')}"></i>Normal low</span></div>
+    <div class="chart h220"><canvas aria-label="Forecast highs and lows for the week against the 1991–2020 normals"></canvas></div>` : '') + srcLine(['climate']);
+  if (chart) lineChart('clim-' + el.dataset.ctx, el.querySelector('canvas'), days, [
+    { label: 'Forecast high', data: hi, color: css('--s2') }, { label: 'Normal high', data: nHi, color: css('--s2'), dash: [5, 4] },
+    { label: 'Forecast low', data: lo, color: css('--s1') }, { label: 'Normal low', data: nLo, color: css('--s1'), dash: [5, 4] }
+  ], { xFmt: dayShort, tipTitle: dayShort, yFmt: v => Math.round(v) + '°', tipLabel: x => `${x.dataset.label}: ${fmtNum(x.parsed.y, 1)}°C` });
+} });
+
+card('events', { name: 'Natural events', href: '#earth', keys: ['events'], render(el) {
+  const top = cardTop(el, 'Natural events tracked by NASA');
+  const g = gate(['events']); if (g) return el.innerHTML = top + g;
+  const E = S.data.events, n = evCounts(E);
+  const recent = E.map(e => ({ e, p: evPoint(e) })).filter(x => x.p).sort((a, b) => String(b.p.date).localeCompare(String(a.p.date))).slice(0, el.dataset.ctx === 'view' ? 12 : 4);
+  el.innerHTML = top + `<div class="chips">${Object.entries(n).sort((a, b) => b[1] - a[1]).map(([k, v]) => `<span class="pill"><i style="background:var(${evMeta(k).c})"></i>${esc(evMeta(k).n)} <b class="mono">${v}</b></span>`).join('')}</div>
+    <ul class="ov-rows">${recent.map(({ e, p }) => `<li><span><a href="${safeUrl((e.sources && e.sources[0] && e.sources[0].url) || e.link)}" target="_blank" rel="noopener">${esc(e.title)}</a></span><span class="muted sm mono">${p.date ? ago(Date.parse(p.date)) : ''}</span></li>`).join('')}</ul>
+    <div class="muted sm">Open events from the last 60 days, newest update first.</div>` + srcLine(['events']);
+} });
+
+card('crypto', { name: 'Crypto', href: '#markets', keys: ['crypto'], render(el) {
+  const top = cardTop(el, 'Crypto');
+  const g = gate(['crypto']); if (g) return el.innerHTML = top + g;
+  el.innerHTML = top + `<ul class="ov-rows">${S.data.crypto.slice(0, 4).map(r => `<li><span><b>${esc(r.name)}</b> <span class="muted mono sm">${esc(String(r.symbol).toUpperCase())}</span></span><span class="mono">${fmtMoney(r.current_price)} ${delta(r.price_change_percentage_24h_in_currency)}</span></li>`).join('')}</ul><div class="muted sm">Change over 24 hours</div>` + srcLine(['crypto']);
+} });
+
+card('fx', { name: 'Currency', href: '#markets', keys: ['fx'], render(el) {
+  const top = cardTop(el, 'Currency · ' + settings.currency);
+  const g = gate(['fx']); if (g) return el.innerHTML = top + g;
+  const d = S.data.fx, list = FX_MAJOR.filter(c => c !== settings.currency && d.rates[c]).slice(0, 4);
+  el.innerHTML = top + `<ul class="ov-rows">${list.map(c => `<li><span>1 ${c} <span class="muted sm">${esc(currencyName(c))}</span></span><b class="mono">${fmtMoney(1 / d.rates[c])}</b></li>`).join('')}</ul><div class="muted sm">Reference rates for ${esc(d.date)}</div>` + srcLine(['fx']);
+} });
+
+card('quake', { name: 'Earthquakes', href: '#earth', keys: ['quakes'], render(el) {
+  const top = cardTop(el, 'Earthquakes');
+  const g = gate(['quakes']); if (g) return el.innerHTML = top + g;
+  const f = S.data.quakes.features.filter(q => fin(q.properties.mag));
+  const big = f.reduce((a, b) => (!a || b.properties.mag > a.properties.mag) ? b : a, null);
+  el.innerHTML = top + `<div class="now"><div class="big">${f.length}</div><div class="muted">${esc(feedLabel())}</div></div>${big ? `<div class="sm">Strongest: <span class="mag ${magCls(big.properties.mag)}">M${mag1(big.properties.mag).toFixed(1)}</span> ${esc(big.properties.place || 'Unknown place')}, ${ago(big.properties.time)}</div>` : ''}` + srcLine(['quakes']);
+} });
+
+card('iss', { name: 'Space station', href: '#space', keys: ['iss', 'issWhere'], render(el) {
+  const top = cardTop(el, 'Space station');
+  const g = gate(['iss']); if (g) return el.innerHTML = top + g;
+  const p = S.data.iss, w = S.data.issWhere;
+  el.innerHTML = top + `<div class="mid">${esc(issOver(w))}</div><div class="muted sm mono">${fmtNum(p.latitude, 2)}°, ${fmtNum(p.longitude, 2)}° · ${fmtNum(p.velocity, 0)} km/h · ${fmtNum(p.altitude, 0)} km up</div>` + srcLine(['iss']);
+} });
+
+card('hn', { name: 'Tech news', href: '#tech', keys: ['hn'], render(el) {
+  const top = cardTop(el, 'Tech news');
+  const g = gate(['hn']); if (g) return el.innerHTML = top + g;
+  el.innerHTML = top + `<ul class="ov-rows">${S.data.hn.items.slice(0, 4).map(i => `<li><span><a href="${i.url ? safeUrl(i.url) : 'https://news.ycombinator.com/item?id=' + encodeURIComponent(i.id)}" target="_blank" rel="noopener">${esc(i.title)}</a></span><span class="mono muted sm">${fmtNum(i.score)} pts</span></li>`).join('')}</ul>` + srcLine(['hn']);
+} });
+
+card('wiki', { name: 'Most read on Wikipedia', href: '#wiki', keys: ['wiki'], render(el) {
+  const top = cardTop(el, 'Most read on Wikipedia');
+  const g = gate(['wiki']); if (g) return el.innerHTML = top + g;
+  const arts = wikiTop(4);
+  el.innerHTML = top + (arts.length ? `<ul class="ov-rows">${arts.map(a => `<li><span><a href="${safeUrl(a.content_urls?.desktop?.page)}" target="_blank" rel="noopener">${esc(a.titles?.normalized || a.title)}</a></span><span class="mono muted sm">${fmtCompact(a.views, 1)}</span></li>`).join('')}</ul>` : '<p class="muted">No reading list for today yet.</p>') + srcLine(['wiki']);
+} });
+
+card('econ', { name: 'Economy', href: '#economy', keys: ['wb'], render(el) {
+  const ind = wbInd(), top = cardTop(el, esc(ind.name) + ' · latest');
+  const g = gate(['wb']); if (g) return el.innerHTML = top + g;
+  const L = wbLatest();
+  el.innerHTML = top + `<ul class="ov-rows">${settings.wbCountries.slice(0, 4).map(c => { const v = L[c.id]; return `<li><span>${esc(c.name)}</span><span class="mono">${v ? fmtInd(v.value, ind.unit) + ` <span class="muted sm">${esc(v.date)}</span>` : '—'}</span></li>`; }).join('')}</ul><div class="muted sm">${esc(ind.note)}</div>` + srcLine(['wb']);
+} });
+
+/* Overview */
+const OV_CARDS = ['brief', 'weather', 'air', 'best', 'climate', 'crypto', 'fx', 'quake', 'events', 'country', 'spacewx', 'launches', 'iss', 'hn', 'wiki', 'econ', 'places'];
+view({
+  id: 'overview', label: 'Overview', title: 'The world right now',
+  intro: 'Live feeds from free public sources, summed up. Pick a place and a currency at the top and every card follows. Pin the cards you care about to My dashboard, and press Ctrl+K to search.',
+  mount(root) { root.insertAdjacentHTML('beforeend', `<div class="ov">${OV_CARDS.map(id => cardHTML(id, 'ov')).join('')}</div>`); },
+  get regions() { return OV_CARDS.filter(id => CARDS[id]).map(id => cardRegion(id)); }
+});
+
+/* My dashboard */
+function wireDrag(box) {
+  if (!box) return;
+  let dragId = null;
+  box.addEventListener('dragstart', e => { const s = e.target.closest && e.target.closest('[data-card]'); if (!s) return; dragId = s.dataset.card; e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', dragId); } catch {} s.classList.add('dragging'); });
+  box.addEventListener('dragend', () => { dragId = null; box.querySelectorAll('.dragging, .drag-over').forEach(x => x.classList.remove('dragging', 'drag-over')); });
+  box.addEventListener('dragover', e => { const s = e.target.closest && e.target.closest('[data-card]'); if (!dragId || !s) return; e.preventDefault(); box.querySelectorAll('.drag-over').forEach(x => { if (x !== s) x.classList.remove('drag-over'); }); if (s.dataset.card !== dragId) s.classList.add('drag-over'); });
+  box.addEventListener('drop', e => {
+    const s = e.target.closest && e.target.closest('[data-card]'); if (!dragId || !s) return; e.preventDefault();
+    const from = settings.pins.indexOf(dragId), to = settings.pins.indexOf(s.dataset.card);
+    if (from < 0 || to < 0 || from === to) return;
+    settings.pins.splice(from, 1); settings.pins.splice(to, 0, dragId); save('pins'); dragId = null; go('mine');
+  });
+}
+view({
+  id: 'mine', label: 'My dashboard', title: 'My dashboard',
+  intro: 'Your own set of cards. Pin cards from any page, add one below, and drag cards (or use the arrows) to reorder. Saved in this browser only.',
+  mount(root) {
+    const avail = Object.values(CARDS).filter(c => !settings.pins.includes(c.id));
+    root.insertAdjacentHTML('beforeend', `<div class="bar"><label class="field" for="mine-add"><span>Add a card</span><select id="mine-add" class="btn"><option value="">Choose…</option>${avail.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join('')}</select></label><button id="mine-addbtn" class="btn" type="button">Add</button>${settings.pins.length ? '<button id="mine-clear" class="btn" type="button">Remove all cards</button>' : ''}</div>
+      ${settings.pins.length ? `<div class="ov" id="mine">${settings.pins.map(id => cardHTML(id, 'mine')).join('')}</div>` : '<section class="panel"><p class="muted" style="margin:0">Your dashboard is empty. Pin cards from Overview or any page, or add one above.</p></section>'}
+      <section class="panel" id="alerts"></section>`);
+    $('#mine-addbtn').addEventListener('click', () => { const id = $('#mine-add').value; if (!id || !CARDS[id]) return; settings.pins.push(id); save('pins'); go('mine'); const s = $('#mine-add'); if (s) s.focus(); });
+    const clr = $('#mine-clear');
+    if (clr) clr.addEventListener('click', () => {
+      if (clr.dataset.armed) { settings.pins = []; save('pins'); go('mine'); return; }
+      clr.dataset.armed = '1'; clr.textContent = 'Click again to remove all';
+      setTimeout(() => { if (clr.isConnected) { delete clr.dataset.armed; clr.textContent = 'Remove all cards'; } }, 4000);
+    });
+    wireDrag($('#mine'));
+  },
+  get regions() { return [...settings.pins.filter(id => CARDS[id]).map(id => cardRegion(id, '#mine')), { sel: '#alerts', keys: [], render: renderAlerts }]; }
+});
+
+/* Weather */
+view({
+  id: 'weather', label: 'Weather', title: 'Weather',
+  intro: 'Current conditions, the next 48 hours and the week ahead, plus what the air is like to breathe. Change the place at the top.',
+  mount(root) {
+    root.insertAdjacentHTML('beforeend', `<div class="g g-2"><section class="panel" id="w-now"></section><section class="panel" id="w-air"></section></div>
+      <section class="panel" id="w-hours"></section><section class="panel" id="w-week"></section>${cardHTML('climate', 'view')}`);
+  },
+  regions: [
+    { sel: '#w-now', keys: ['weather'], render(el) {
+      const top = head('Right now in ' + esc(settings.city.name), esc(settings.city.region || ''));
+      const g = gate(['weather']); if (g) return el.innerHTML = top + g;
+      const d = S.data.weather, c = d.current, dl = d.daily, t = todayIdx(d);
+      el.innerHTML = top + `<div class="now"><div class="big">${Math.round(c.temperature_2m)}°<small>C</small></div><div><div class="cond">${esc(wmo(c.weather_code))}</div><div class="muted sm">Feels like ${Math.round(c.apparent_temperature)}° · High ${Math.round(dl.temperature_2m_max[t])}° · Low ${Math.round(dl.temperature_2m_min[t])}°</div><div class="muted sm">Observed ${esc(hourLbl(c.time))} local time</div></div></div>
+        <dl class="kv"><div><dt>Humidity</dt><dd>${fmtNum(c.relative_humidity_2m)}%</dd></div><div><dt>Wind</dt><dd>${fmtNum(c.wind_speed_10m)} km/h ${compass(c.wind_direction_10m)}</dd></div><div><dt>Pressure</dt><dd>${fmtNum(c.pressure_msl)} hPa</dd></div><div><dt>Rain now</dt><dd>${fmtNum(c.precipitation, 1)} mm</dd></div><div><dt>UV today</dt><dd>${uvCat(dl.uv_index_max[t])}</dd></div><div><dt>Sun</dt><dd>${esc(hourLbl(dl.sunrise[t]))}–${esc(hourLbl(dl.sunset[t]))}</dd></div></dl>` + srcLine(['weather']);
+    } },
+    { sel: '#w-air', keys: ['aqi'], render(el) {
+      const top = head('Air quality', 'US AQI scale');
+      const g = gate(['aqi']); if (g) return el.innerHTML = top + g;
+      const d = S.data.aqi, c = d.current, k = aqiCat(c.us_aqi);
+      el.innerHTML = top + `<div class="now"><div class="big">${fin(c.us_aqi) ? Math.round(c.us_aqi) : '—'}</div><div>${pill(k.t, 'aq' + k.l)}<div class="muted sm" style="margin-top:6px;max-width:44ch">${esc(k.a)} <a href="#air">More on air quality</a></div></div></div>
+        <dl class="kv"><div><dt>PM2.5</dt><dd>${fmtNum(c.pm2_5, 1)} µg/m³</dd></div><div><dt>PM10</dt><dd>${fmtNum(c.pm10, 1)} µg/m³</dd></div><div><dt>Ozone</dt><dd>${fmtNum(c.ozone, 0)} µg/m³</dd></div><div><dt>NO₂</dt><dd>${fmtNum(c.nitrogen_dioxide, 1)} µg/m³</dd></div><div><dt>CO</dt><dd>${fmtNum(c.carbon_monoxide, 0)} µg/m³</dd></div></dl>
+        <div class="muted sm">AQI over the next 24 hours</div><div class="chart h120"><canvas id="c-aqi" aria-label="US AQI forecast for the next 24 hours"></canvas></div>` + srcLine(['aqi']);
+      const h = d.hourly, now = c.time.slice(0, 13);
+      let i0 = h.time.findIndex(t => t >= now); if (i0 < 0) i0 = 0;
+      const t = h.time.slice(i0, i0 + 25), v = h.us_aqi.slice(i0, i0 + 25);
+      lineChart('aqi', $('#c-aqi'), t, [{ label: 'US AQI', data: v, color: css('--s2'), fill: true }], { xFmt: hourLbl, tipTitle: l => dayShort(l) + ', ' + hourLbl(l), yFmt: v => Math.round(v), yMin: 0 });
+    } },
+    { sel: '#w-hours', keys: ['weather'], render(el) {
+      const top = head('Next 48 hours');
+      const g = gate(['weather']); if (g) return el.innerHTML = top + g;
+      const d = S.data.weather, h = d.hourly, i0 = hourIdx(d);
+      const t = h.time.slice(i0, i0 + 48), temp = h.temperature_2m.slice(i0, i0 + 48), rain = h.precipitation_probability.slice(i0, i0 + 48);
+      el.innerHTML = top + `<div class="muted sm">Temperature, °C</div><div class="chart h220"><canvas id="c-temp" aria-label="Hourly temperature for the next 48 hours"></canvas></div>
+        <div class="muted sm">Chance of rain, %</div><div class="chart h120"><canvas id="c-rain" aria-label="Hourly chance of rain for the next 48 hours"></canvas></div>` + srcLine(['weather']);
+      const xFmt = l => l.slice(11, 13) === '00' ? dayShort(l) : hourLbl(l);
+      const tipTitle = l => dayShort(l) + ', ' + hourLbl(l);
+      lineChart('temp', $('#c-temp'), t, [{ label: 'Temperature', data: temp, color: css('--s1'), fill: true }], { xFmt, tipTitle, yFmt: v => Math.round(v) + '°' });
+      barChart('rain', $('#c-rain'), t, rain, css('--s1'), { label: 'Chance of rain', xFmt, tipTitle, yFmt: v => v + '%', yMin: 0, yMax: 100 });
+    } },
+    cardRegion('climate'),
+    { sel: '#w-week', keys: ['weather'], render(el) {
+      const top = head('Week ahead');
+      const g = gate(['weather']); if (g) return el.innerHTML = top + g;
+      const dl = S.data.weather.daily, t0 = todayIdx(S.data.weather);
+      const lo =Math.min(...dl.temperature_2m_min), hi = Math.max(...dl.temperature_2m_max), span = (hi - lo) || 1;
+      el.innerHTML = top + `<div class="tbl"><table><thead><tr><th>Day</th><th>Conditions</th><th class="num">Low</th><th style="min-width:110px"><span class="sr">Range</span></th><th class="num">High</th><th class="num">Rain</th><th class="num">UV</th><th class="num">Sun</th></tr></thead><tbody>${dl.time.map((t, i) => i < t0 ? '' : `<tr><td><b>${i === t0 ? 'Today' : esc(dayShort(t))}</b></td><td>${esc(wmo(dl.weather_code[i]))}</td><td class="num">${Math.round(dl.temperature_2m_min[i])}°</td><td><div class="range" aria-hidden="true"><i style="left:${((dl.temperature_2m_min[i] - lo) / span * 100).toFixed(1)}%;width:${Math.max(4, (dl.temperature_2m_max[i] - dl.temperature_2m_min[i]) / span * 100).toFixed(1)}%"></i></div></td><td class="num">${Math.round(dl.temperature_2m_max[i])}°</td><td class="num">${fmtNum(dl.precipitation_sum[i], 1)} mm · ${fmtNum(dl.precipitation_probability_max[i])}%</td><td class="num">${fmtNum(dl.uv_index_max[i], 0)}</td><td class="num">${esc(hourLbl(dl.sunrise[i]))}–${esc(hourLbl(dl.sunset[i]))}</td></tr>`).join('')}</tbody></table></div>` + srcLine(['weather']);
+    } }
+  ]
+});
+
+/* Air quality */
+function placeSearch(input, ul, onPick) {
+  let timer, seq = 0, results = [];
+  input.addEventListener('input', () => {
+    clearTimeout(timer);
+    const q = input.value.trim(), my = ++seq;
+    if (q.length < 2) { ul.innerHTML = ''; return; }
+    timer = setTimeout(async () => {
+      ul.innerHTML = '<li class="muted sm" style="padding:8px">Searching…</li>';
+      try {
+        const d = await getJSON(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=6&language=en&format=json`);
+        if (my !== seq) return;
+        results = d.results || [];
+        ul.innerHTML = results.length ? results.map((r, i) => `<li><button type="button" data-res="${i}">${esc(r.name)}<small>${esc([r.admin1, r.country].filter(Boolean).join(', '))}</small></button></li>`).join('') : '<li class="muted sm" style="padding:8px">No places match that name.</li>';
+      } catch (err) { if (my === seq) ul.innerHTML = `<li class="muted sm" style="padding:8px">${esc(err.message)}</li>`; }
+    }, 300);
+  });
+  ul.addEventListener('click', e => {
+    const b = e.target.closest('[data-res]'); if (!b) return;
+    const r = results[+b.dataset.res]; if (!r) return;
+    ul.innerHTML = ''; input.value = '';
+    onPick({ name: r.name, region: [r.admin1, r.country].filter(Boolean).join(', '), lat: r.latitude, lon: r.longitude });
+    input.focus();
+  });
+}
+function renderPlaceChips() {
+  const el = $('#pl-chips'); if (!el) return;
+  el.innerHTML = settings.places.map((p, i) => `<span class="chip"><i style="background:var(${SERIES[p.slot]})" aria-hidden="true"></i>${esc(p.name)}<button type="button" data-rmp="${i}" aria-label="Remove ${esc(p.name)}">×</button></span>`).join('') || '<span class="muted">No places yet. Search below to add one.</span>';
+  const q = $('#pl-q'); if (q) q.disabled = settings.places.length >= 8;
+}
+function addPlace(p) {
+  if (settings.places.length >= 8) { toast('Place list is full', 'Remove a place before adding another (8 at most).'); return; }
+  if (settings.places.some(x => Math.abs(x.lat - p.lat) < 0.01 && Math.abs(x.lon - p.lon) < 0.01)) { toast('Already saved', `${p.name} is already in your places.`); return; }
+  const used = new Set(settings.places.map(x => x.slot));
+  settings.places.push({ name: String(p.name).slice(0, 80), region: String(p.region || '').slice(0, 120), lat: +(+p.lat).toFixed(4), lon: +(+p.lon).toFixed(4), slot: [0, 1, 2, 3, 4, 5, 6, 7].find(s => !used.has(s)) });
+  save('places'); renderPlaceChips(); invalidate(['places']);
+}
+function renderPlacesChart(el) {
+  const top = head('Air forecast by place', 'Next 5 days, your time');
+  if (!settings.places.length) return el.innerHTML = top + '<p class="muted">Add places above to compare them.</p>';
+  const g = gate(['places']); if (g) return el.innerHTML = top + g;
+  const sets = S.data.places.list.filter(p => p.a && p.a.hourly).map(p => {
+    const i0 = nowIdx(p.a.hourly, p.a.current.time);
+    return { label: p.name, data: p.a.hourly.us_aqi.slice(i0, i0 + 120), color: css(SERIES[p.slot]) };
+  });
+  // Each place's series starts at its own current hour, so the x axis is "hours from now" shown in the viewer's time.
+  const n = Math.max(0, ...sets.map(s => s.data.length)), base = Math.floor(Date.now() / 3600e3) * 3600e3;
+  const labels = Array.from({ length: n }, (_, i) => new Date(base + i * 3600e3).toISOString());
+  el.innerHTML = top + `<div class="legend">${sets.map(s => `<span><i style="background:${s.color}"></i>${esc(s.label)}</span>`).join('')}</div><div class="chart h320"><canvas aria-label="Hourly US AQI forecast for each saved place"></canvas></div>` + srcLine(['places'], 'Open-Meteo Air Quality');
+  lineChart('aircmp', el.querySelector('canvas'), labels, sets, {
+    bands: true, allTicks: true, yMin: 0, yFmt: v => Math.round(v),
+    xFmt: l => { const d = new Date(l); return d.getHours() === 0 ? WD[d.getDay()] + ' ' + d.getDate() : ''; },
+    tipTitle: l => { const d = new Date(l); return WD[d.getDay()] + ' ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }); },
+    tipLabel: x => `${x.dataset.label}: ${Math.round(x.parsed.y)} · ${aqiCat(x.parsed.y).t}`
+  });
+}
+view({
+  id: 'air', label: 'Air quality', title: 'Air quality',
+  intro: 'How clean the air is where you are and in the places you care about: right now, over the next five days and over the last three months, plus the best time to head outside.',
+  mount(root) {
+    root.insertAdjacentHTML('beforeend', `<div class="g g-2">${cardHTML('aqnow', 'view')}${cardHTML('best', 'view')}</div>
+      ${cardHTML('aqfc', 'view')}
+      <section class="panel" id="air-places">${head('Compare places', 'Up to 8')}<div class="chips" id="pl-chips"></div>
+        <div class="place-add"><label class="field" for="pl-q"><span>Add a place</span><input id="pl-q" class="inp" type="search" placeholder="Delhi, London, Tokyo…" autocomplete="off"></label><ul id="pl-res" class="res-list" aria-label="Matching places"></ul></div></section>
+      ${cardHTML('places', 'view')}
+      <section class="panel" id="air-cmp"></section>
+      ${cardHTML('aqtrend', 'view')}`);
+    renderPlaceChips();
+    placeSearch($('#pl-q'), $('#pl-res'), addPlace);
+  },
+  regions: [cardRegion('aqnow'), cardRegion('best'), cardRegion('aqfc'), cardRegion('places'), { sel: '#air-cmp', keys: ['places'], render: renderPlacesChart }, cardRegion('aqtrend')]
+});
+
+/* Alerts and notices */
+function toast(title, body) {
+  const box = $('#toasts'); if (!box) return;
+  const t = document.createElement('div'); t.className = 'toast';
+  t.innerHTML = '<div><b></b><p></p></div><button type="button" class="icon-btn" aria-label="Dismiss">×</button>';
+  t.querySelector('b').textContent = title; t.querySelector('p').textContent = body;
+  t.querySelector('button').addEventListener('click', () => t.remove());
+  box.appendChild(t);
+  setTimeout(() => t.remove(), 12000);
+  while (box.children.length > 4) box.firstElementChild.remove();
+}
+let alertSeen = store.get('alertSeen', []);
+if (!Array.isArray(alertSeen)) alertSeen = [];
+function sendAlert(id, title, body, force) {
+  if (!force) {
+    if (alertSeen.includes(id)) return;
+    alertSeen.push(id); alertSeen = alertSeen.slice(-300); store.set('alertSeen', alertSeen);
+  }
+  try { if ('Notification' in window && Notification.permission === 'granted') new Notification(title, { body, icon: 'icon-192.png', tag: id }); } catch {}
+  toast(title, body);
+}
+const alertKeys = () => { const A = settings.alerts, k = []; if (A.aqi.on) k.push('aqi'); if (A.quake.on) k.push('qalert'); if (A.coin.on) k.push('crypto'); return k; };
+function checkAlerts(key) {
+  const A = settings.alerts, day = new Date().toISOString().slice(0, 10);
+  if (key === 'aqi' && A.aqi.on && S.data.aqi) {
+    const v = S.data.aqi.current.us_aqi;
+    if (fin(v) && v >= A.aqi.above) sendAlert(`aqi|${settings.city.lat},${settings.city.lon}|${day}|${A.aqi.above}`, `Air quality alert · ${settings.city.name}`, `US AQI is ${Math.round(v)} (${aqiCat(v).t}), at or above your limit of ${A.aqi.above}.`);
+  }
+  if ((key === 'qalert' || key === 'quakes') && A.quake.on && S.data[key]) {
+    S.data[key].features.forEach(q => {
+      const m = q.properties.mag;
+      if (fin(m) && mag1(m) >= A.quake.min && Date.now() - q.properties.time < 12 * 3600e3) sendAlert('q|' + q.id, `Earthquake M${mag1(m).toFixed(1)}`, `${q.properties.place || 'Unknown place'}, ${ago(q.properties.time)}.`);
+    });
+  }
+  if (key === 'crypto' && A.coin.on && S.data.crypto) {
+    const r = S.data.crypto.find(x => x.id === A.coin.id), p = r && r.price_change_percentage_24h_in_currency;
+    if (fin(p) && Math.abs(p) >= A.coin.pct) sendAlert(`c|${r.id}|${day}|${p > 0 ? 'up' : 'down'}`, `${r.name} ${p > 0 ? 'up' : 'down'} ${Math.abs(p).toFixed(1)}%`, `${r.name} is ${fmtMoney(r.current_price)}, ${p > 0 ? 'up' : 'down'} ${Math.abs(p).toFixed(1)}% in 24 hours.`);
+  }
+}
+const clampN = (v, lo, hi, d) => { v = parseFloat(v); return fin(v) ? Math.min(hi, Math.max(lo, v)) : d; };
+function renderAlerts(el) {
+  const A = settings.alerts, perm = 'Notification' in window ? Notification.permission : 'unsupported';
+  const coins = (S.data.crypto || []).map(r => [r.id, r.name]);
+  if (!coins.some(c => c[0] === A.coin.id)) coins.unshift([A.coin.id, A.coin.id]);
+  el.innerHTML = `${head('Alerts', 'While Open Pulse is open in a tab')}
+    <div class="alerts">
+      <label class="check" for="al-aqi"><input id="al-aqi" type="checkbox"${A.aqi.on ? ' checked' : ''}>Air in ${esc(settings.city.name)} reaches US AQI</label><input id="al-aqi-v" class="inp num-inp" type="number" min="1" max="500" value="${A.aqi.above}" aria-label="AQI limit">
+      <label class="check" for="al-q"><input id="al-q" type="checkbox"${A.quake.on ? ' checked' : ''}>An earthquake anywhere of magnitude</label><input id="al-q-v" class="inp num-inp" type="number" min="4.5" max="9.5" step="0.1" value="${A.quake.min}" aria-label="Minimum magnitude">
+      <label class="check" for="al-c"><input id="al-c" type="checkbox"${A.coin.on ? ' checked' : ''}>A 24-hour price move of at least (%)</label><input id="al-c-v" class="inp num-inp" type="number" min="1" max="90" step="0.5" value="${A.coin.pct}" aria-label="Percent move">
+      <label class="field" for="al-c-id" style="grid-column:1/-1"><span>Coin to watch</span><select id="al-c-id" class="btn">${coins.map(([id, n]) => `<option value="${esc(id)}"${id === A.coin.id ? ' selected' : ''}>${esc(n)}</option>`).join('')}</select></label>
+    </div>
+    <div class="bar">${perm === 'granted' ? pill('Browser notifications on', 'good') : perm === 'denied' ? '<span class="muted sm">Notifications are blocked for this site, so alerts show on the page only. You can allow them in your browser’s site settings.</span>' : perm === 'unsupported' ? '<span class="muted sm">This browser can’t show notifications, so alerts show on the page only.</span>' : '<button id="al-perm" class="btn" type="button">Allow browser notifications</button>'}<button id="al-test" class="btn sm" type="button">Send a test alert</button></div>
+    <p class="muted sm" style="margin:0">Each event alerts you once. Checks run on the normal refresh: air every 30 minutes, earthquakes every 3 minutes, prices every 2 minutes.</p>
+    <div id="al-bg" class="bg-alerts"></div>`;
+  const upd = () => {
+    A.aqi = { on: $('#al-aqi').checked, above: Math.round(clampN($('#al-aqi-v').value, 1, 500, 150)) };
+    A.quake = { on: $('#al-q').checked, min: clampN($('#al-q-v').value, 4.5, 9.5, 6) };
+    A.coin = { on: $('#al-c').checked, pct: clampN($('#al-c-v').value, 1, 90, 5), id: $('#al-c-id').value || 'bitcoin' };
+    save('alerts');
+    alertKeys().forEach(k => { if (S.data[k] !== undefined) checkAlerts(k); });
+    tick(); bgSync();
+  };
+  el.querySelectorAll('input, select').forEach(i => i.addEventListener('change', upd));
+  const pb = $('#al-perm'); if (pb) pb.addEventListener('click', async () => { try { await Notification.requestPermission(); } catch {} renderAlerts(el); });
+  $('#al-test').addEventListener('click', () => sendAlert('test', 'Test alert', 'Alerts are working. Real ones appear here, and as notifications if you allowed them.', true));
+  renderBg();
+}
+
+/* Markets */
+view({
+  id: 'markets', label: 'Markets', title: 'Crypto and currency markets',
+  intro: 'The 20 largest cryptocurrencies by market value, and official exchange rates for 30 currencies, all priced in the currency you pick at the top.',
+  mount(root) {
+    const opts = sel => FX_ALL.map(c => `<option value="${c}"${c === sel ? ' selected' : ''}>${c} · ${esc(currencyName(c))}</option>`).join('');
+    root.insertAdjacentHTML('beforeend', `<section class="panel" id="m-global"></section>
+      <div class="g g-wide"><section class="panel" id="m-coin"></section><section class="panel" id="m-conv-panel">
+        ${head('Currency converter', 'ECB reference rates')}
+        <div class="conv"><label class="field" for="fx-amt"><span>Amount</span><input id="fx-amt" class="inp" type="number" inputmode="decimal" min="0" step="any" value="100"></label>
+          <label class="field" for="fx-from"><span>From</span><select id="fx-from" class="btn">${opts(fxPair())}</select></label>
+          <button id="fx-swap" class="btn sm swap" type="button" aria-label="Swap the two currencies">⇄ Swap</button>
+          <label class="field" for="fx-to"><span>To</span><select id="fx-to" class="btn">${opts(settings.currency)}</select></label></div>
+        <div id="m-conv" class="conv-out"></div></section></div>
+      <section class="panel" id="m-table"></section>
+      <section class="panel" id="m-fx"></section>
+      <section class="panel"><div class="ph"><h2 id="fxh-title">Exchange rate history</h2><div class="seg" role="group" aria-label="Time range" id="fx-range">${['1M', '3M', '1Y', '5Y'].map(r => `<button type="button" data-range="${r}" aria-pressed="${r === settings.fxRange}">${r}</button>`).join('')}</div></div><div id="m-fxh"></div></section>`);
+    const recalc = () => renderKey('fx');
+    $('#fx-amt').addEventListener('input', recalc);
+    $('#fx-from').addEventListener('change', recalc);
+    $('#fx-to').addEventListener('change', recalc);
+    $('#fx-swap').addEventListener('click', () => { const a = $('#fx-from'), b = $('#fx-to'), t = a.value; a.value = b.value; b.value = t; recalc(); });
+    $('#fx-range').addEventListener('click', e => {
+      const b = e.target.closest('[data-range]'); if (!b) return;
+      settings.fxRange = b.dataset.range; save('fxRange');
+      $('#fx-range').querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b));
+      invalidate(['fxHist']);
+    });
+  },
+  regions: [
+    { sel: '#m-global', keys: ['cglobal'], render(el) {
+      const top = head('Whole crypto market');
+      const g = gate(['cglobal']); if (g) return el.innerHTML = top + g;
+      const d = S.data.cglobal, cur = settings.currency.toLowerCase();
+      el.innerHTML = top + `<dl class="kv"><div><dt>Total value</dt><dd>${fmtMoney(d.total_market_cap?.[cur], settings.currency, true)}</dd></div><div><dt>24 h change, in USD</dt><dd>${delta(d.market_cap_change_percentage_24h_usd)}</dd></div><div><dt>24 h trading</dt><dd>${fmtMoney(d.total_volume?.[cur], settings.currency, true)}</dd></div><div><dt>Bitcoin share</dt><dd>${fmtNum(d.market_cap_percentage?.btc, 1)}%</dd></div><div><dt>Ether share</dt><dd>${fmtNum(d.market_cap_percentage?.eth, 1)}%</dd></div><div><dt>Coins tracked</dt><dd>${fmtNum(d.active_cryptocurrencies)}</dd></div></dl>` + srcLine(['cglobal']);
+    } },
+    { sel: '#m-coin', keys: ['crypto', 'coinChart'], render(el) {
+      const g = gate(['crypto']); if (g) return el.innerHTML = head('Coin') + g;
+      const rows = S.data.crypto, r = rows.find(x => x.id === settings.coin) || rows[0];
+      const cc = S.data.coinChart, ok = cc && cc.id === r.id && cc.cur === settings.currency && cc.prices.length > 1;
+      const pts = ok ? cc.prices.map(p => p[1]) : [], labels = ok ? cc.prices.map(p => new Date(p[0]).toISOString()) : [];
+      const fmtT = iso => { const d = new Date(iso); return WD[d.getDay()] + ' ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }); };
+      const chartBox = ok ? `<div class="chart h220"><canvas id="c-coin" aria-label="${esc(r.name)} price over the last 7 days"></canvas></div>`
+        : S.status.coinChart === 'error' ? `<div class="state err" role="alert"><strong>The 7-day chart didn’t load.</strong><span>${esc(S.err.coinChart)}</span><button class="btn sm" type="button" data-retry="coinChart">Try again</button></div>`
+        : '<div class="state" aria-busy="true" style="height:220px"><span class="sk tall"></span><span class="sk"></span></div>';
+      el.innerHTML = head(`<span style="text-transform:none;letter-spacing:0;font-size:15px;color:var(--ink)">${esc(r.name)}</span> <span class="mono muted">${esc(String(r.symbol).toUpperCase())}</span>`, 'Pick any coin in the table') +
+        `<div class="now"><div class="big" style="font-size:clamp(32px,4vw,46px)">${fmtMoney(r.current_price)}</div><div>${delta(r.price_change_percentage_24h_in_currency)} <span class="muted sm">24 h</span><br>${delta(r.price_change_percentage_7d_in_currency)} <span class="muted sm">7 days</span></div></div>
+        ${chartBox}
+        <dl class="kv"><div><dt>24 h high</dt><dd>${fmtMoney(r.high_24h)}</dd></div><div><dt>24 h low</dt><dd>${fmtMoney(r.low_24h)}</dd></div><div><dt>Market value</dt><dd>${fmtMoney(r.market_cap, settings.currency, true)}</dd></div><div><dt>All-time high</dt><dd>${fmtMoney(r.ath)}</dd></div></dl>` + srcLine(['crypto']);
+      if (!ok) return;
+      // Pick tick precision from the price range so cheap or stable coins don't repeat the same label on every tick.
+      const fp = pts.filter(fin), rng = fp.length ? Math.max(...fp) - Math.min(...fp) : 0;
+      const tickDigits = Math.min(8, Math.max(0, Math.ceil(-Math.log10((rng || Math.abs(fp[0]) || 1) / 4)) + 1));
+      const tickFmt = v => Math.abs(v) >= 1e5 ? fmtMoney(v, settings.currency, true) : new Intl.NumberFormat(undefined, { style: 'currency', currency: settings.currency, minimumFractionDigits: 0, maximumFractionDigits: tickDigits }).format(v);
+      lineChart('coin', $('#c-coin'), labels, [{ label: r.name, data: pts, color: css('--s1'), fill: true }], {
+        xFmt: (l, i) => { const d = new Date(l); return d.getHours() === 0 || i === 0 ? WD[d.getDay()] : ''; }, tipTitle: fmtT, yFmt: tickFmt, tipLabel: c => 'Price: ' + fmtMoney(c.parsed.y)
+      });
+      charts.coin && (charts.coin.options.scales.x.ticks.autoSkip = false, charts.coin.update());
+    } },
+    { sel: '#m-table', keys: ['crypto'], render(el) {
+      const top = head('Top 20 by market value', 'Prices in ' + settings.currency);
+      const g = gate(['crypto']); if (g) return el.innerHTML = top + g;
+      const up = css('--good-ink'), dn = css('--bad-ink');
+      el.innerHTML = top + `<div class="tbl"><table><thead><tr><th class="num">#</th><th>Coin</th><th class="num">Price</th><th class="num">1 h</th><th class="num">24 h</th><th class="num">7 d</th><th class="num">Market value</th><th>Last 7 days</th></tr></thead><tbody>${S.data.crypto.map(r => {
+        const sp = (r.sparkline_in_7d?.price || []).filter((_, i) => i % 3 === 0);
+        return `<tr class="pick" data-coin="${esc(r.id)}" tabindex="0" aria-selected="${r.id === settings.coin}"><td class="num muted">${fmtNum(r.market_cap_rank)}</td><td><div class="coin"><img src="${safeUrl(r.image)}" alt="" loading="lazy" width="22" height="22"><span><b>${esc(r.name)}</b> <small>${esc(r.symbol)}</small></span></div></td><td class="num">${fmtMoney(r.current_price)}</td><td class="num">${delta(r.price_change_percentage_1h_in_currency, 1)}</td><td class="num">${delta(r.price_change_percentage_24h_in_currency, 1)}</td><td class="num">${delta(r.price_change_percentage_7d_in_currency, 1)}</td><td class="num">${fmtMoney(r.market_cap, settings.currency, true)}</td><td>${spark(sp, (r.price_change_percentage_7d_in_currency || 0) >= 0 ? up : dn)}</td></tr>`;
+      }).join('')}</tbody></table></div>` + srcLine(['crypto']);
+    } },
+    { sel: '#m-conv', keys: ['fx'], render(el) {
+      const g = gate(['fx']); if (g) return el.innerHTML = g;
+      const d = S.data.fx, B = settings.currency, rate = c => c === B ? 1 : d.rates[c];
+      const amt = parseFloat($('#fx-amt')?.value), from = $('#fx-from')?.value, to = $('#fx-to')?.value;
+      if (!rate(from) || !rate(to)) return el.innerHTML = `<small>No reference rate for ${esc(!rate(from) ? from : to)} today. Pick another currency.</small>`;
+      if (!fin(amt)) return el.innerHTML = '<small>Enter an amount to convert.</small>';
+      const out = amt / rate(from) * rate(to);
+      el.innerHTML = `${esc(fmtMoney(amt, from))} = <b>${esc(fmtMoney(out, to))}</b><small>1 ${from} = ${fmtNum(rate(to) / rate(from), 4)} ${to} · rates for ${esc(d.date)}, updated each working day around 16:00 CET</small>`;
+    } },
+    { sel: '#m-fx', keys: ['fx'], render(el) {
+      const top = head('What 1 unit costs in ' + settings.currency, 'Pick one to chart its history');
+      const g = gate(['fx']); if (g) return el.innerHTML = top + g;
+      const d = S.data.fx, P = fxPair();
+      el.innerHTML = top + `<div class="rates">${FX_ALL.filter(c => c !== settings.currency && d.rates[c]).map(c => `<button type="button" class="rate" data-fx="${c}" aria-pressed="${c === P}"><small>${c} · ${esc(currencyName(c))}</small><b>${esc(fmtMoney(1 / d.rates[c]))}</b></button>`).join('')}</div>` + srcLine(['fx']);
+    } },
+    { sel: '#m-fxh', keys: ['fxHist'], render(el) {
+      const t = $('#fxh-title'); if (t) t.textContent = `${fxPair()} in ${settings.currency}`;
+      const g = gate(['fxHist']); if (g) return el.innerHTML = g;
+      const d = S.data.fxHist, days = Object.keys(d.rates).sort(), vals = days.map(k => d.rates[k][d.base]);
+      if (!vals.length) return el.innerHTML = '<p class="muted">No history for this pair.</p>';
+      const first = vals[0], last = vals[vals.length - 1], hi = Math.max(...vals), lo = Math.min(...vals);
+      const long = d.range === '1Y' || d.range === '5Y';
+      el.innerHTML = `<dl class="kv"><div><dt>Latest</dt><dd>${fmtMoney(last, d.base)}</dd></div><div><dt>Change</dt><dd>${delta((last / first - 1) * 100)}</dd></div><div><dt>High</dt><dd>${fmtMoney(hi, d.base)}</dd></div><div><dt>Low</dt><dd>${fmtMoney(lo, d.base)}</dd></div></dl>
+        <div class="chart h260" style="margin-top:12px"><canvas id="c-fxh" aria-label="${esc(d.pair)} to ${esc(d.base)} exchange rate history"></canvas></div>` + srcLine(['fxHist']);
+      lineChart('fxh', $('#c-fxh'), days, [{ label: `1 ${d.pair}`, data: vals, color: css('--s3'), fill: false }], {
+        xFmt: l => new Date(l + 'T12:00').toLocaleDateString(undefined, long ? { month: 'short', year: '2-digit' } : { month: 'short', day: 'numeric' }),
+        tipTitle: l => new Date(l + 'T12:00').toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }),
+        yFmt: v => fmtNum(v, v < 10 ? 3 : 2), tipLabel: c => `1 ${d.pair} = ${fmtMoney(c.parsed.y, d.base)}`
+      });
+    } }
+  ]
+});
+
+/* Earthquakes */
+const feedLabel = () => `${{ 'significant': 'Significant', '4.5': 'M4.5+', '2.5': 'M2.5+', '1.0': 'M1+', 'all': 'All' }[settings.quakeLevel]} quakes in the past ${settings.quakePeriod}`;
+view({
+  id: 'earth', label: 'Earth events', title: 'Earthquakes and natural events',
+  intro: 'Every earthquake the US Geological Survey has recorded in the window you choose, plus the wildfires, storms and volcanoes NASA is tracking. Bigger circles are stronger quakes. Click a quake in the list to find it on the map.',
+  mount(root) {
+    const sel = (id, opts, val) => `<select id="${id}" class="btn">${opts.map(([v, t]) => `<option value="${v}"${v === val ? ' selected' : ''}>${t}</option>`).join('')}</select>`;
+    root.insertAdjacentHTML('beforeend', `<div class="bar"><label class="field" for="q-level"><span>Strength</span>${sel('q-level', [['significant', 'Significant only'], ['4.5', 'Magnitude 4.5+'], ['2.5', 'Magnitude 2.5+'], ['1.0', 'Magnitude 1+'], ['all', 'All recorded']], settings.quakeLevel)}</label>
+      <label class="field" for="q-period"><span>Window</span>${sel('q-period', [['hour', 'Past hour'], ['day', 'Past day'], ['week', 'Past week'], ['month', 'Past month']], settings.quakePeriod)}</label>
+      <label class="check" for="q-ev"><input id="q-ev" type="checkbox"${settings.showEvents ? ' checked' : ''}>Show NASA natural events on the map</label></div>
+      <section class="panel" id="q-stats"></section>
+      <section class="panel"><div class="map" id="q-mapbox" role="region" aria-label="Map of earthquakes and natural events"></div><div id="q-map"></div><div id="q-evmap"></div>
+        <div class="legend"><span><i style="background:var(--s2);border-radius:50%"></i>Earthquake (size = magnitude)</span>${Object.keys(EV).slice(0, 4).map(k => `<span><i class="ev-key" style="border-color:var(${EV[k].c})"></i>${EV[k].n}</span>`).join('')}</div></section>
+      <div class="g g-wide"><section class="panel" id="q-list"></section><section class="panel" id="q-hist"></section></div>
+      ${cardHTML('events', 'view')}`);
+    const onSel = () => {
+      settings.quakeLevel = $('#q-level').value; settings.quakePeriod = $('#q-period').value; save('quakeLevel'); save('quakePeriod');
+      if (settings.quakeLevel === 'all' && settings.quakePeriod === 'month') { settings.quakePeriod = 'week'; $('#q-period').value = 'week'; save('quakePeriod'); }
+      invalidate(['quakes']);
+    };
+    $('#q-level').addEventListener('change', debounce(onSel)); $('#q-period').addEventListener('change', debounce(onSel));
+    const m = makeMap($('#q-mapbox'));
+    if (m) maps.q = { map: m, layer: L.layerGroup().addTo(m), ev: L.layerGroup(), byId: {} };
+    if (m && settings.showEvents) maps.q.ev.addTo(m);
+    $('#q-ev').addEventListener('change', e => { settings.showEvents = e.target.checked; save('showEvents'); if (maps.q) { if (settings.showEvents) maps.q.ev.addTo(maps.q.map); else maps.q.ev.remove(); } });
+  },
+  regions: [
+    { sel: '#q-stats', keys: ['quakes'], render(el) {
+      const top = head(esc(feedLabel()));
+      const g = gate(['quakes']); if (g) return el.innerHTML = top + g;
+      const f = S.data.quakes.features.filter(q => fin(q.properties.mag));
+      const big = f.reduce((a, b) => (!a || b.properties.mag > a.properties.mag) ? b : a, null);
+      const latest = f.reduce((a, b) => (!a || b.properties.time > a.properties.time) ? b : a, null);
+      const strong = f.filter(q => mag1(q.properties.mag) >= 5).length, tsu = f.filter(q => q.properties.tsunami).length;
+      el.innerHTML = top + `<dl class="kv"><div><dt>Recorded</dt><dd>${fmtNum(f.length)}</dd></div><div><dt>Strongest</dt><dd>${big ? 'M' + big.properties.mag.toFixed(1) : '—'}</dd></div><div><dt>M5 or more</dt><dd>${fmtNum(strong)}</dd></div><div><dt>Tsunami flag</dt><dd>${fmtNum(tsu)}</dd></div><div><dt>Latest</dt><dd>${latest ? ago(latest.properties.time) : '—'}</dd></div></dl>${big ? `<div class="sm">Strongest: <b>${esc(big.properties.place || 'Unknown place')}</b>, ${new Date(big.properties.time).toLocaleString()}</div>` : ''}` + srcLine(['quakes']);
+    } },
+    { sel: '#q-map', keys: ['quakes'], render() {
+      const M = maps.q; if (!M || !S.data.quakes) return;
+      M.layer.clearLayers(); M.byId = {};
+      const col = css('--s2'), ring = css('--panel');
+      [...S.data.quakes.features].filter(q => fin(q.properties.mag)).sort((a, b) => b.properties.mag - a.properties.mag).forEach(q => {
+        const [lon, lat, depth] = q.geometry.coordinates, mg = Math.max(0, q.properties.mag);
+        const mk = L.circleMarker([lat, lon], { radius: 2.5 + 1.5 * Math.pow(mg, 1.3), color: ring, weight: 1, fillColor: col, fillOpacity: 0.55 })
+          .bindPopup(`<b>M${q.properties.mag.toFixed(1)}</b> · ${esc(q.properties.place || 'Unknown place')}<br>${esc(new Date(q.properties.time).toLocaleString())}<br>Depth ${fmtNum(depth, 1)} km · <a href="${safeUrl(q.properties.url)}" target="_blank" rel="noopener">USGS details</a>`);
+        mk.addTo(M.layer); M.byId[q.id] = mk;
+      });
+    } },
+    { sel: '#q-evmap', keys: ['events'], render() {
+      const M = maps.q; if (!M || !S.data.events) return;
+      M.ev.clearLayers();
+      S.data.events.forEach(e => {
+        const p = evPoint(e); if (!p) return;
+        const meta = evMeta(evCat(e)), col = css(meta.c);
+        L.circleMarker([p.lat, p.lon], { radius: 5, color: col, weight: 2.5, fillColor: css('--panel'), fillOpacity: 0.9 })
+          .bindPopup(`<b>${esc(e.title)}</b><br>${esc(meta.n)}${p.date ? ' · updated ' + esc(ago(Date.parse(p.date))) : ''}${fin(p.mag) ? ' · ' + esc(p.mag + ' ' + (p.unit || '')) : ''}<br><a href="${safeUrl((e.sources && e.sources[0] && e.sources[0].url) || e.link)}" target="_blank" rel="noopener">Source</a>`)
+          .addTo(M.ev);
+      });
+    } },
+    cardRegion('events'),
+    { sel: '#q-list', keys: ['quakes'], render(el) {
+      const top = `<div class="ph"><h2>Quake list</h2><div class="seg" role="group" aria-label="Sort quakes">${[['time', 'Latest'], ['mag', 'Strongest']].map(([k, t]) => `<button type="button" data-qsort="${k}" aria-pressed="${settings.quakeSort === k}">${t}</button>`).join('')}</div></div>`;
+      const g = gate(['quakes']); if (g) return el.innerHTML = top + g;
+      const f = S.data.quakes.features.filter(q => fin(q.properties.mag)).sort((a, b) => settings.quakeSort === 'mag' ? b.properties.mag - a.properties.mag : b.properties.time - a.properties.time).slice(0, 40);
+      el.innerHTML = top + (f.length ? `<div class="tbl"><table><thead><tr><th>Mag</th><th>Where</th><th class="num">Depth</th><th class="num">When</th></tr></thead><tbody>${f.map(q => `<tr class="pick" data-quake="${esc(q.id)}" tabindex="0"><td><span class="mag ${magCls(q.properties.mag)}">${q.properties.mag.toFixed(1)}</span></td><td>${esc(q.properties.place || 'Unknown place')}${q.properties.tsunami ? ' ' + pill('Tsunami flag', 'serious') : ''}</td><td class="num">${fmtNum(q.geometry.coordinates[2], 0)} km</td><td class="num">${ago(q.properties.time)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="muted">No quakes in this window. Try a longer window or a lower strength.</p>') + srcLine(['quakes']);
+    } },
+    { sel: '#q-hist', keys: ['quakes'], render(el) {
+      const top = head('How strong', 'Count by magnitude');
+      const g = gate(['quakes']); if (g) return el.innerHTML = top + g;
+      const m = S.data.quakes.features.map(q => q.properties.mag).filter(fin);
+      if (!m.length) return el.innerHTML = top + '<p class="muted">Nothing to count yet.</p>';
+      const lo = Math.floor(Math.min(...m) * 2) / 2, hi = Math.floor(Math.max(...m) * 2) / 2, bins = [];
+      for (let b = lo; b <= hi + 1e-9; b += 0.5) bins.push({ b, n: 0 });
+      m.forEach(v => { const i = Math.min(bins.length - 1, Math.floor((v - lo) / 0.5)); bins[i].n++; });
+      el.innerHTML = top + `<div class="chart h260"><canvas id="c-qh" aria-label="Number of earthquakes by magnitude"></canvas></div>` + srcLine(['quakes']);
+      barChart('qh', $('#c-qh'), bins.map(x => x.b.toFixed(1)), bins.map(x => x.n), css('--s2'), { label: 'Quakes', tipTitle: l => `Magnitude ${l}–${(+l + 0.5).toFixed(1)}`, yFmt: v => Number.isInteger(v) ? v : '', yMin: 0, tipLabel: c => `${c.parsed.y} quakes` });
+    } }
+  ]
+});
+
+/* Space */
+const issOver = w => !w ? (S.status.issWhere === 'error' ? 'Place name unavailable' : 'Locating…') : (w.country_code && w.country_code !== '??' ? 'Over ' + regionName(w.country_code) : 'Over open water');
+view({
+  id: 'space', label: 'Space', title: 'Space: the station, space weather and launches',
+  intro: 'The ISS circles Earth about every 92 minutes, 400-odd km up. Its position updates every 5 seconds while this page is open. The dashed line is where it goes next.',
+  mount(root) {
+    root.insertAdjacentHTML('beforeend', `<section class="panel" id="s-stats"></section>
+      <section class="panel"><div class="ph"><h2>Live position</h2><label class="check" for="s-follow"><input id="s-follow" type="checkbox"${settings.follow ? ' checked' : ''}>Keep the station centred</label></div>
+      <div class="map" id="s-mapbox" role="region" aria-label="Map of the ISS position and orbit"></div><div id="s-map"></div>
+      <div class="legend"><span><i style="background:var(--accent)"></i>Last 45 minutes</span><span><i style="background:var(--muted)"></i>Next 95 minutes</span><span><i style="background:${hexA('#1baf7a', .25)}"></i>Area that can see it</span></div></section>
+      <div class="g g-2">${cardHTML('spacewx', 'view')}${cardHTML('launches', 'view')}</div>`);
+    $('#s-follow').addEventListener('change', e => { settings.follow = e.target.checked; save('follow'); renderKey('iss'); });
+    const m = makeMap($('#s-mapbox'), [20, 0], 2);
+    if (m) maps.s = { map: m, past: L.layerGroup().addTo(m), fut: L.layerGroup().addTo(m), foot: null, mk: null };
+  },
+  regions: [
+    cardRegion('spacewx'), cardRegion('launches'),
+    { sel: '#s-stats', keys: ['iss', 'issWhere'], render(el) {
+      const top = head('International Space Station', 'NORAD 25544');
+      const g = gate(['iss']); if (g) return el.innerHTML = top + g;
+      const p = S.data.iss, w = S.data.issWhere;
+      el.innerHTML = top + `<div class="mid">${esc(issOver(w))}</div><dl class="kv"><div><dt>Latitude</dt><dd>${fmtNum(p.latitude, 3)}°</dd></div><div><dt>Longitude</dt><dd>${fmtNum(p.longitude, 3)}°</dd></div><div><dt>Altitude</dt><dd>${fmtNum(p.altitude, 1)} km</dd></div><div><dt>Speed</dt><dd>${fmtNum(p.velocity, 0)} km/h</dd></div><div><dt>Sunlight</dt><dd>${p.visibility === 'daylight' ? 'In sunlight' : 'In Earth’s shadow'}</dd></div><div><dt>Local time zone</dt><dd>${esc(w?.timezone_id || '—')}</dd></div></dl>` + srcLine(['iss']);
+    } },
+    { sel: '#s-map', keys: ['iss', 'issPath'], render() {
+      const M = maps.s; if (!M || !S.data.iss) return;
+      const p = S.data.iss, ll = [p.latitude, p.longitude], acc = css('--accent'), mut = css('--muted');
+      M.past.clearLayers(); M.fut.clearLayers();
+      const cut = p.timestamp - 45 * 60, seen = new Set();
+      const past = [...(S.data.issPath?.past || []), ...issTrail]
+        .filter(t => t[2] >= cut && !seen.has(t[2]) && seen.add(t[2]))
+        .sort((a, b) => a[2] - b[2]);
+      splitWrap(past).forEach(s => L.polyline(s, { color: acc, weight: 2.5, opacity: 0.9 }).addTo(M.past));
+      if (S.data.issPath) splitWrap(S.data.issPath.future).forEach(s => L.polyline(s, { color: mut, weight: 2, dashArray: '6 6', opacity: 0.9 }).addTo(M.fut));
+      if (!M.foot) M.foot = L.circle(ll, { radius: (p.footprint || 4500) * 500, color: '#1baf7a', weight: 1, fillOpacity: 0.12, opacity: 0.4, interactive: false }).addTo(M.map);
+      else M.foot.setLatLng(ll).setRadius((p.footprint || 4500) * 500);
+      if (!M.mk) M.mk = L.circleMarker(ll, { radius: 8, color: css('--panel'), weight: 3, fillColor: acc, fillOpacity: 1 }).bindTooltip('ISS').addTo(M.map);
+      else M.mk.setLatLng(ll).setStyle({ fillColor: acc, color: css('--panel') });
+      if (settings.follow) M.map.panTo(ll, { animate: !RM, duration: 1 });
+    } }
+  ]
+});
+
+/* Economy */
+// Regions and income groups come back with an empty 3-letter code and a 2-letter id (e.g. "XD"), so match on either, then on name.
+function wbKey(r) {
+  const c = settings.wbCountries.find(c => (r.countryiso3code && c.id === r.countryiso3code) || (c.i2 && c.i2 === r.country?.id) || (!r.countryiso3code && c.name === r.country?.value));
+  return c ? c.id : null;
+}
+function wbLatest() {
+  const out = {};
+  (S.data.wb?.rows || []).forEach(r => { if (!fin(r.value)) return; const k = wbKey(r); if (k && (!out[k] || +r.date > +out[k].date)) out[k] = r; });
+  return out;
+}
+function renderChips() {
+  const el = $('#e-chips'); if (!el) return;
+  el.innerHTML = settings.wbCountries.map(c => `<span class="chip"><i style="background:var(${SERIES[c.slot]})" aria-hidden="true"></i>${esc(c.name)}<button type="button" data-rmc="${esc(c.id)}" aria-label="Remove ${esc(c.name)}">×</button></span>`).join('') || '<span class="muted">Add a country to start.</span>';
+}
+view({
+  id: 'economy', label: 'Economy', title: 'Countries compared',
+  intro: 'Yearly figures from the World Bank for any country or region since 1990. Pick a measure, then add up to six places to compare.',
+  mount(root) {
+    root.insertAdjacentHTML('beforeend', `<div class="bar"><label class="field" for="e-ind"><span>Measure</span><select id="e-ind" class="btn">${WB_IND.map(i => `<option value="${i.id}"${i.id === settings.wbIndicator ? ' selected' : ''}>${esc(i.name)} (${esc(i.note)})</option>`).join('')}</select></label><div id="e-add"></div></div>
+      <div class="chips" id="e-chips"></div>
+      <section class="panel" id="e-chart"></section><section class="panel" id="e-table"></section>`);
+    renderChips();
+    $('#e-ind').addEventListener('change', debounce(e => { settings.wbIndicator = e.target.value; save('wbIndicator'); invalidate(['wb']); }));
+  },
+  regions: [
+    { sel: '#e-add', keys: ['wbCountries'], render(el) {
+      const list = S.data.wbCountries;
+      if (!list) return el.innerHTML = S.status.wbCountries === 'error' ? `<button class="btn sm" type="button" data-retry="wbCountries">Reload country list</button>` : '<span class="muted sm">Loading countries…</span>';
+      const have = new Set(settings.wbCountries.map(c => c.id)), full = settings.wbCountries.length >= 6;
+      el.innerHTML = `<div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap"><label class="field" for="e-addsel"><span>Add a place${full ? ' (6 max)' : ''}</span><select id="e-addsel" class="btn"${full ? ' disabled' : ''}><option value="">Choose…</option><optgroup label="Countries">${list.filter(c => !c.agg && !have.has(c.id)).map(c => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('')}</optgroup><optgroup label="Regions and groups">${list.filter(c => c.agg && !have.has(c.id)).map(c => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join('')}</optgroup></select></label><button id="e-addbtn" class="btn" type="button"${full ? ' disabled' : ''}>Add</button></div>`;
+      // An explicit Add button: keyboard users arrowing through the list fire 'change' on every step.
+      $('#e-addbtn').addEventListener('click', () => {
+        const id = $('#e-addsel').value; if (!id) return;
+        const c = list.find(x => x.id === id), used = new Set(settings.wbCountries.map(x => x.slot));
+        const slot = [0, 1, 2, 3, 4, 5, 6, 7].find(s => !used.has(s));
+        if (!c || slot === undefined) return;
+        settings.wbCountries.push({ id, i2: c.i2 || '', name: c.name, slot }); save('wbCountries');
+        renderChips(); renderKey('wbCountries'); invalidate(['wb']);
+        const s = $('#e-addsel'); if (s) s.focus();
+      });
+    } },
+    { sel: '#e-chart', keys: ['wb'], render(el) {
+      const ind = wbInd(), top = head(esc(ind.name), esc(ind.note));
+      const g = gate(['wb']); if (g) return el.innerHTML = top + g;
+      const rows = S.data.wb.rows.filter(r => fin(r.value));
+      if (!rows.length) return el.innerHTML = top + '<p class="muted">The World Bank has no figures for this measure and these places.</p>' + srcLine(['wb']);
+      const years = [...new Set(rows.map(r => r.date))].sort();
+      const sets = settings.wbCountries.map(c => {
+        const m = {}; rows.filter(r => wbKey(r) === c.id).forEach(r => m[r.date] = +r.value);
+        return { label: c.name, data: years.map(y => m[y] ?? null), color: css(SERIES[c.slot]) };
+      });
+      el.innerHTML = top + `<div class="legend">${sets.map(s => `<span><i style="background:${s.color}"></i>${esc(s.label)}</span>`).join('')}</div><div class="chart h320"><canvas id="c-wb" aria-label="${esc(ind.name)} by year"></canvas></div>` + srcLine(['wb']);
+      lineChart('wb', $('#c-wb'), years, sets, { yFmt: v => fmtInd(v, ind.unit), tipLabel: c => `${c.dataset.label}: ${fmtInd(c.parsed.y, ind.unit)}` });
+    } },
+    { sel: '#e-table', keys: ['wb'], render(el) {
+      const ind = wbInd(), top = head('Latest figures');
+      const g = gate(['wb']); if (g) return el.innerHTML = top + g;
+      const L = wbLatest(), rows = S.data.wb.rows;
+      const back = (id, yr) => rows.find(r => wbKey(r) === id && +r.date === yr && fin(r.value));
+      el.innerHTML = top + `<div class="tbl"><table><thead><tr><th>Place</th><th class="num">Latest</th><th class="num">Year</th><th class="num">10 years before</th></tr></thead><tbody>${settings.wbCountries.map(c => { const v = L[c.id], b = v && back(c.id, +v.date - 10); return `<tr><td><span class="chip" style="border:0;padding:0;background:none"><i style="background:var(${SERIES[c.slot]})"></i>${esc(c.name)}</span></td><td class="num">${v ? fmtInd(v.value, ind.unit) : '—'}</td><td class="num">${v ? esc(v.date) : '—'}</td><td class="num">${b ? fmtInd(b.value, ind.unit) : '—'}</td></tr>`; }).join('')}</tbody></table></div><p class="muted sm" style="margin:0">The World Bank publishes most figures once a year, so the latest year is often one or two years back.</p>` + srcLine(['wb']);
+    } }
+  ]
+});
+
+/* Country explorer */
+const CCY = Object.fromEntries(('AD:EUR AE:AED AF:AFN AG:XCD AI:XCD AL:ALL AM:AMD AO:AOA AR:ARS AS:USD AT:EUR AU:AUD AW:AWG AZ:AZN BA:BAM BB:BBD BD:BDT BE:EUR BF:XOF BG:EUR BH:BHD BI:BIF BJ:XOF BM:BMD BN:BND BO:BOB BR:BRL BS:BSD BT:BTN BW:BWP BY:BYN BZ:BZD CA:CAD CD:CDF CF:XAF CG:XAF CH:CHF CI:XOF CL:CLP CM:XAF CN:CNY CO:COP CR:CRC CU:CUP CV:CVE CW:XCG CY:EUR CZ:CZK DE:EUR DJ:DJF DK:DKK DM:XCD DO:DOP DZ:DZD EC:USD EE:EUR EG:EGP ER:ERN ES:EUR ET:ETB FI:EUR FJ:FJD FM:USD FO:DKK FR:EUR GA:XAF GB:GBP GD:XCD GE:GEL GH:GHS GI:GIP GL:DKK GM:GMD GN:GNF GQ:XAF GR:EUR GT:GTQ GU:USD GW:XOF GY:GYD HK:HKD HN:HNL HR:EUR HT:HTG HU:HUF ID:IDR IE:EUR IL:ILS IM:GBP IN:INR IQ:IQD IR:IRR IS:ISK IT:EUR JM:JMD JO:JOD JP:JPY KE:KES KG:KGS KH:KHR KI:AUD KM:KMF KN:XCD KP:KPW KR:KRW KW:KWD KY:KYD KZ:KZT LA:LAK LB:LBP LC:XCD LI:CHF LK:LKR LR:LRD LS:LSL LT:EUR LU:EUR LV:EUR LY:LYD MA:MAD MC:EUR MD:MDL ME:EUR MF:EUR MG:MGA MH:USD MK:MKD ML:XOF MM:MMK MN:MNT MO:MOP MP:USD MR:MRU MT:EUR MU:MUR MV:MVR MW:MWK MX:MXN MY:MYR MZ:MZN NA:NAD NC:XPF NE:XOF NG:NGN NI:NIO NL:EUR NO:NOK NP:NPR NR:AUD NZ:NZD OM:OMR PA:PAB PE:PEN PF:XPF PG:PGK PH:PHP PK:PKR PL:PLN PR:USD PS:ILS PT:EUR PW:USD PY:PYG QA:QAR RO:RON RS:RSD RU:RUB RW:RWF SA:SAR SB:SBD SC:SCR SD:SDG SE:SEK SG:SGD SI:EUR SK:EUR SL:SLE SM:EUR SN:XOF SO:SOS SR:SRD SS:SSP ST:STN SV:USD SX:XCG SY:SYP SZ:SZL TC:USD TD:XAF TG:XOF TH:THB TJ:TJS TL:USD TM:TMT TN:TND TO:TOP TR:TRY TT:TTD TV:AUD TW:TWD TZ:TZS UA:UAH UG:UGX US:USD UY:UYU UZ:UZS VC:XCD VE:VES VG:USD VI:USD VN:VND VU:VUV WS:WST XK:EUR YE:YER ZA:ZAR ZM:ZMW ZW:ZWG').split(' ').map(x => x.split(':')));
+const WB_FACTS = [
+  { id: 'SP.POP.TOTL', n: 'Population', u: 'num' }, { id: 'NY.GDP.MKTP.CD', n: 'GDP', u: 'usd' },
+  { id: 'NY.GDP.PCAP.CD', n: 'GDP per person', u: 'usd' }, { id: 'NY.GDP.MKTP.KD.ZG', n: 'GDP growth', u: 'pct' },
+  { id: 'FP.CPI.TOTL.ZG', n: 'Inflation', u: 'pct' }, { id: 'SL.UEM.TOTL.ZS', n: 'Unemployment', u: 'pct' },
+  { id: 'SP.DYN.LE00.IN', n: 'Life expectancy', u: 'yrs' }, { id: 'SP.URB.TOTL.IN.ZS', n: 'Living in cities', u: 'pct' },
+  { id: 'IT.NET.USER.ZS', n: 'Internet users', u: 'pct' }, { id: 'EG.ELC.ACCS.ZS', n: 'Access to electricity', u: 'pct' },
+  { id: 'EN.POP.DNST', n: 'People per km²', u: 'num' }
+];
+async function wbList() {
+  if (S.data.wbCountries) return S.data.wbCountries;
+  const l = await SRC.wbCountries.load();
+  S.data.wbCountries = l; S.at.wbCountries = Date.now(); S.status.wbCountries = 'ok'; notify('wbCountries');
+  return l;
+}
+const ctryOf = () => (S.data.wbCountries || []).find(c => c.id === settings.country) || null;
+const flagImg = (c, w = 40) => /^[A-Z]{2}$/.test(c.i2 || '') ? `<img class="flag" src="https://flagcdn.com/w80/${c.i2.toLowerCase()}.png" alt="" width="${w}" height="${Math.round(w * 0.66)}" loading="lazy">` : '';
+const fmtDay = d => new Date(d + 'T12:00Z').toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
+const daysUntil = d => Math.round((Date.parse(d + 'T12:00Z') - Date.parse(isoDate(new Date()) + 'T12:00Z')) / 864e5);
+const inDays = n => n === 0 ? 'today' : n === 1 ? 'tomorrow' : `in ${n} days`;
+SRC.ctryFacts = { name: 'World Bank Open Data', home: 'https://data.worldbank.org/', ttl: 6 * 3600e3, load: async () => {
+  const id = settings.country;
+  const res = await getJSON(`https://api.worldbank.org/v2/country/${id}/indicator/${WB_FACTS.map(f => f.id).join(';')}?source=2&format=json&mrnev=1&per_page=60`, 25000);
+  if (res[0] && res[0].message) throw new Error('The World Bank did not return figures for this country.');
+  const by = {}; (res[1] || []).forEach(r => { if (fin(r.value)) by[r.indicator.id] = { v: +r.value, y: r.date }; });
+  return { id, by };
+} };
+SRC.ctryLive = { name: 'Open-Meteo', home: 'https://open-meteo.com/', ttl: 15 * 60e3, load: async () => {
+  const id = settings.country, c = (await wbList()).find(x => x.id === id);
+  if (!c || !fin(c.lat) || !fin(c.lon)) return { id, none: true };
+  const [w, a] = await Promise.all([
+    getJSON(`https://api.open-meteo.com/v1/forecast?latitude=${c.lat}&longitude=${c.lon}&current=temperature_2m,apparent_temperature,weather_code&daily=temperature_2m_max,temperature_2m_min&forecast_days=1&timezone=auto`),
+    getJSON(`https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${c.lat}&longitude=${c.lon}&current=us_aqi,pm2_5&timezone=auto`).catch(() => null)
+  ]);
+  return { id, w, a };
+} };
+SRC.ctryHol = { name: 'Nager.Date', home: 'https://date.nager.at/', ttl: 12 * 3600e3, load: async () => {
+  const id = settings.country, c = (await wbList()).find(x => x.id === id), i2 = c && c.i2;
+  const avail = await getJSON('https://date.nager.at/api/v3/AvailableCountries');
+  if (!i2 || !avail.some(x => x.countryCode === i2)) return { id, supported: false };
+  const y = new Date().getFullYear(), today = isoDate(new Date());
+  const [next, a, b] = await Promise.all([
+    getJSON(`https://date.nager.at/api/v3/NextPublicHolidays/${i2}`),
+    getJSON(`https://date.nager.at/api/v3/LongWeekend/${y}/${i2}`).catch(() => []),
+    getJSON(`https://date.nager.at/api/v3/LongWeekend/${y + 1}/${i2}`).catch(() => [])
+  ]);
+  return { id, supported: true, next: (next || []).slice(0, 8), long: [...(a || []), ...(b || [])].filter(l => l.endDate >= today).slice(0, 6) };
+} };
+function openCountry(id) { settings.country = id; save('country'); invalidate(['ctryFacts', 'ctryLive', 'ctryHol']); goTo('country'); }
+const goTo = id => { if (location.hash.slice(1) === id) go(id); else location.hash = id; };
+function ctryLiveHTML(c) {
+  const L = S.data.ctryLive && S.data.ctryLive.id === c.id ? S.data.ctryLive : null;
+  if (!L) return gate(['ctryLive']) || '';
+  if (L.none || !L.w) return '<p class="muted">No capital coordinates for this country.</p>';
+  const w = L.w.current, local = new Date(Date.now() + (L.w.utc_offset_seconds || 0) * 1000);
+  const time = String(local.getUTCHours()).padStart(2, '0') + ':' + String(local.getUTCMinutes()).padStart(2, '0');
+  const aq = L.a && L.a.current, k = aqiCat(aq && aq.us_aqi);
+  return `<div class="now"><div class="big">${Math.round(w.temperature_2m)}°<small>C</small></div><div><div class="cond">${esc(wmo(w.weather_code))} in ${esc(c.capital || 'the capital')}</div><div class="muted sm">Local time ${time} · ${esc(L.w.timezone_abbreviation || L.w.timezone || '')}</div></div></div>
+    ${aq && fin(aq.us_aqi) ? `<div class="sm">Air: <span class="mono">${Math.round(aq.us_aqi)}</span> ${pill(k.t, 'aq' + k.l)}</div>` : ''}`;
+}
+function ctryMoneyHTML(c) {
+  const code = CCY[c.i2]; if (!code) return '';
+  let txt;
+  if (code === settings.currency) txt = `Uses ${esc(code)}, the same as your currency.`;
+  else if (S.data.fx && S.data.fx.rates[code]) txt = `1 ${esc(code)} (${esc(currencyName(code))}) = <b class="mono">${esc(fmtMoney(1 / S.data.fx.rates[code]))}</b>`;
+  else txt = `Uses ${esc(code)} (${esc(currencyName(code))})${S.data.fx ? ', which has no ECB reference rate' : ''}.`;
+  return `<div class="sm">${txt}</div>`;
+}
+card('country', { name: 'Country snapshot', href: '#country', keys: ['wbCountries', 'ctryFacts', 'ctryLive', 'ctryHol', 'fx'], render(el) {
+  const c = ctryOf();
+  const top = cardTop(el, c ? esc(c.name) : 'Country snapshot');
+  if (!c) return el.innerHTML = top + (gate(['wbCountries']) || '<p class="muted">Pick a country on the Countries page.</p>');
+  const F = S.data.ctryFacts && S.data.ctryFacts.id === c.id ? S.data.ctryFacts.by : {};
+  const H = S.data.ctryHol && S.data.ctryHol.id === c.id ? S.data.ctryHol : null;
+  const nh = H && H.supported && H.next[0];
+  el.innerHTML = top + `<div class="ctry-mini">${flagImg(c, 36)}<span class="muted sm">${esc(c.region || '')}${c.capital ? ' · Capital ' + esc(c.capital) : ''}</span></div>${ctryLiveHTML(c)}${ctryMoneyHTML(c)}
+    <ul class="ov-rows">${F['SP.POP.TOTL'] ? `<li><span>Population</span><span class="mono">${fmtCompact(F['SP.POP.TOTL'].v, 2)} <span class="muted sm">${esc(F['SP.POP.TOTL'].y)}</span></span></li>` : ''}${F['NY.GDP.PCAP.CD'] ? `<li><span>GDP per person</span><span class="mono">${fmtInd(F['NY.GDP.PCAP.CD'].v, 'usd')} <span class="muted sm">${esc(F['NY.GDP.PCAP.CD'].y)}</span></span></li>` : ''}${nh ? `<li><span>Next holiday: ${esc(nh.name)}</span><span class="muted sm">${esc(inDays(daysUntil(nh.date)))}</span></li>` : ''}</ul>` + srcLine(['ctryFacts'], 'World Bank, Open-Meteo, Nager.Date');
+} });
+function renderCountryPick(el) {
+  const list = S.data.wbCountries;
+  if (!list) return el.innerHTML = S.status.wbCountries === 'error' ? '<button class="btn sm" type="button" data-retry="wbCountries">Reload country list</button>' : '<span class="muted sm">Loading countries…</span>';
+  if ($('#c-sel')) return;
+  el.innerHTML = `<label class="field" for="c-sel"><span>Country</span><select id="c-sel" class="btn">${list.filter(c => !c.agg).map(c => `<option value="${esc(c.id)}"${c.id === settings.country ? ' selected' : ''}>${esc(c.name)}</option>`).join('')}</select></label>`;
+  $('#c-sel').addEventListener('change', debounce(e => openCountry(e.target.value)));
+}
+view({
+  id: 'country', label: 'Countries', title: 'Country explorer',
+  intro: 'Everything about one country in one place: key figures from the World Bank, the weather and air in its capital right now, its currency against yours, and its upcoming public holidays and long weekends.',
+  mount(root) {
+    root.insertAdjacentHTML('beforeend', `<div class="bar"><div id="c-pick"></div><button id="c-econ" class="btn" type="button">Compare in Economy</button><button id="c-main" class="btn" type="button">Use the capital as my main place</button></div>
+      <section class="panel" id="c-head"></section>
+      <div class="g g-2"><section class="panel" id="c-live"></section><section class="panel" id="c-hol"></section></div>`);
+    $('#c-econ').addEventListener('click', () => {
+      const c = ctryOf(); if (!c) return;
+      if (!settings.wbCountries.some(x => x.id === c.id)) {
+        if (settings.wbCountries.length >= 6) { toast('Economy comparison is full', 'Remove a place there first (6 at most).'); return; }
+        const used = new Set(settings.wbCountries.map(x => x.slot));
+        settings.wbCountries.push({ id: c.id, i2: c.i2 || '', name: c.name, slot: [0, 1, 2, 3, 4, 5, 6, 7].find(s => !used.has(s)) }); save('wbCountries'); invalidate(['wb']);
+      }
+      goTo('economy');
+    });
+    $('#c-main').addEventListener('click', () => { const c = ctryOf(); if (c && fin(c.lat)) setCity({ name: c.capital || c.name, region: c.name, lat: c.lat, lon: c.lon }); });
+  },
+  regions: [
+    { sel: '#c-pick', keys: ['wbCountries'], render: renderCountryPick },
+    { sel: '#c-head', keys: ['wbCountries', 'ctryFacts'], render(el) {
+      const c = ctryOf();
+      if (!c) return el.innerHTML = gate(['wbCountries']) || '<p class="muted">Pick a country above.</p>';
+      const F = S.data.ctryFacts && S.data.ctryFacts.id === c.id ? S.data.ctryFacts.by : null;
+      el.innerHTML = `<div class="ctry-head">${flagImg(c, 64)}<div><h2 class="ctry-name">${esc(c.name)}</h2><div class="muted">${esc([c.region, c.income, c.capital ? 'Capital ' + c.capital : ''].filter(Boolean).join(' · '))}</div></div></div>
+        ${F ? `<dl class="kv">${WB_FACTS.map(f => F[f.id] ? `<div><dt>${esc(f.n)}</dt><dd>${fmtInd(F[f.id].v, f.u)} <span class="muted sm">${esc(F[f.id].y)}</span></dd></div>` : '').join('')}</dl>` : (gate(['ctryFacts']) || '')}` + srcLine(['ctryFacts']);
+    } },
+    { sel: '#c-live', keys: ['wbCountries', 'ctryLive', 'fx'], render(el) {
+      const c = ctryOf(); if (!c) return el.innerHTML = '';
+      el.innerHTML = head('Right now in ' + esc(c.capital || c.name)) + ctryLiveHTML(c) + ctryMoneyHTML(c) + srcLine(['ctryLive'], 'Open-Meteo, ECB rates via Frankfurter');
+    } },
+    { sel: '#c-hol', keys: ['wbCountries', 'ctryHol'], render(el) {
+      const c = ctryOf(); if (!c) return el.innerHTML = '';
+      const top = head('Public holidays');
+      const H = S.data.ctryHol && S.data.ctryHol.id === c.id ? S.data.ctryHol : null;
+      if (!H) return el.innerHTML = top + (gate(['ctryHol']) || '');
+      if (!H.supported) return el.innerHTML = top + `<p class="muted">Nager.Date doesn’t publish holidays for ${esc(c.name)}.</p>` + srcLine(['ctryHol']);
+      el.innerHTML = top + `<ul class="ov-rows">${H.next.map(h => `<li><span><b>${esc(h.name)}</b>${h.localName && h.localName !== h.name ? ` <span class="muted sm">${esc(h.localName)}</span>` : ''}</span><span class="sm mono">${esc(fmtDay(h.date))} · ${esc(inDays(daysUntil(h.date)))}</span></li>`).join('') || '<li class="muted">No more holidays listed this year.</li>'}</ul>
+        ${H.long.length ? `<h3 class="sub">Long weekends ahead</h3><ul class="ov-rows">${H.long.map(l => `<li><span>${esc(fmtDay(l.startDate))} – ${esc(fmtDay(l.endDate))}</span><span class="sm">${l.dayCount} days${l.needBridgeDay && l.bridgeDays && l.bridgeDays.length ? ` · take ${esc(l.bridgeDays.map(fmtDay).join(', '))} off` : ''}</span></li>`).join('')}</ul>` : ''}` + srcLine(['ctryHol']);
+    } }
+  ]
+});
+
+/* Space weather and launches */
+SRC.spaceWx = { name: 'NOAA Space Weather Prediction Center', home: 'https://www.swpc.noaa.gov/', ttl: 15 * 60e3, load: async () => {
+  const [kp, scales, flares] = await Promise.all([
+    getJSON('https://services.swpc.noaa.gov/products/noaa-planetary-k-index-forecast.json'),
+    getJSON('https://services.swpc.noaa.gov/products/noaa-scales.json').catch(() => null),
+    getJSON('https://services.swpc.noaa.gov/json/goes/primary/xray-flares-7-day.json').catch(() => [])
+  ]);
+  return { kp: (kp || []).filter(k => fin(k.kp)).map(k => ({ t: k.time_tag + 'Z', kp: +k.kp, obs: k.observed, scale: k.noaa_scale })), scales, flares: Array.isArray(flares) ? flares : [] };
+} };
+SRC.launches = { name: 'The Space Devs · Launch Library 2', home: 'https://thespacedevs.com/llapi', ttl: 60 * 60e3, load: async () => {
+  // The free API allows 15 requests an hour per visitor, so keep a 30-minute copy in this browser.
+  const hit = store.get('launches', null);
+  if (hit && Array.isArray(hit.list) && Date.now() - hit.at < 30 * 60e3) return hit.list;
+  try {
+    const d = await getJSON('https://ll.thespacedevs.com/2.2.0/launch/upcoming/?limit=12&mode=list', 20000);
+    const list = (d.results || []).map(r => ({ name: String(r.name || ''), net: r.net, status: r.status && r.status.abbrev, statusName: r.status && r.status.name, lsp: r.lsp_name, loc: r.location, pad: r.pad, type: r.mission_type, prob: r.probability }));
+    store.set('launches', { at: Date.now(), list });
+    return list;
+  } catch (e) { if (hit && Array.isArray(hit.list)) return hit.list; throw e; }
+} };
+function kpLevel(k) {
+  const r = Math.round(k);
+  if (r >= 9) return { t: 'G5 extreme storm', s: 'critical', l: 5 }; if (r >= 8) return { t: 'G4 severe storm', s: 'critical', l: 4 };
+  if (r >= 7) return { t: 'G3 strong storm', s: 'critical', l: 3 }; if (r >= 6) return { t: 'G2 moderate storm', s: 'serious', l: 2 };
+  if (r >= 5) return { t: 'G1 minor storm', s: 'serious', l: 1 }; if (r >= 4) return { t: 'Active', s: 'warn', l: 0 };
+  return { t: 'Quiet', s: 'good', l: 0 };
+}
+const AURORA_LAT = [66.5, 64.5, 62.4, 60.4, 58.3, 56.3, 54.2, 52.2, 50.1, 48.1];
+const kpNow = W => { const now = Date.now(); const past = W.kp.filter(k => Date.parse(k.t) <= now); return past[past.length - 1] || W.kp[0]; };
+const flareClass = c => String(c || '').charAt(0);
+card('spacewx', { name: 'Space weather', href: '#space', keys: ['spaceWx'], render(el) {
+  const top = cardTop(el, 'Space weather');
+  const g = gate(['spaceWx']); if (g) return el.innerHTML = top + g;
+  const W = S.data.spaceWx, n = kpNow(W); if (!n) return el.innerHTML = top + '<p class="muted">No Kp readings.</p>';
+  const lv = kpLevel(n.kp), ahead = W.kp.filter(k => Date.parse(k.t) > Date.now()), peak = ahead.reduce((a, b) => (!a || b.kp > a.kp) ? b : a, null);
+  const sc = W.scales && W.scales['0'], view = el.dataset.ctx === 'view';
+  const lat = AURORA_LAT[Math.min(9, Math.max(0, Math.round(n.kp)))];
+  const fl = W.flares.filter(f => /^[CMX]/.test(f.max_class || '')), cnt = { C: 0, M: 0, X: 0 }; fl.forEach(f => { cnt[flareClass(f.max_class)]++; });
+  el.innerHTML = top + `<div class="now"><div class="big">${n.kp.toFixed(1)}<small>Kp</small></div><div>${pill(lv.t, lv.s)}<div class="muted sm" style="margin-top:6px;max-width:46ch">Geomagnetic activity on a 0–9 scale. At this level the aurora can reach about ${lat}° geomagnetic latitude.${peak ? ` Highest forecast in the next 3 days: Kp ${peak.kp.toFixed(1)} (${esc(kpLevel(peak.kp).t)}).` : ''}</div></div></div>
+    ${sc ? `<div class="chips">${[['R', 'Radio blackouts'], ['S', 'Radiation storms'], ['G', 'Geomagnetic storms']].map(([k, n2]) => `<span class="pill ${+sc[k].Scale > 0 ? 'st-serious' : 'st-good'}"><i></i>${k}${esc(sc[k].Scale)} · ${n2}</span>`).join('')}</div>` : ''}
+    ${view ? `<div class="muted sm">Kp every 3 hours: past 2 days and NOAA’s forecast (lighter bars)</div><div class="chart h160"><canvas aria-label="Planetary Kp index, observed and forecast"></canvas></div>
+      <h3 class="sub">Solar flares, last 7 days</h3><div class="chips"><span class="pill"><i style="background:var(--warn)"></i>C class <b class="mono">${cnt.C}</b></span><span class="pill"><i style="background:var(--serious)"></i>M class <b class="mono">${cnt.M}</b></span><span class="pill"><i style="background:var(--critical)"></i>X class <b class="mono">${cnt.X}</b></span></div>
+      <ul class="ov-rows">${fl.slice(-6).reverse().map(f => `<li><span><b class="mono">${esc(f.max_class)}</b> flare</span><span class="muted sm">${esc(new Date(f.max_time || f.time_tag).toLocaleString(undefined, { weekday: 'short', hour: '2-digit', minute: '2-digit' }))}</span></li>`).join('') || '<li class="muted">No C, M or X flares this week.</li>'}</ul>` : ''}` + srcLine(['spaceWx']);
+  if (view) {
+    const since = Date.now() - 2 * 864e5, pts = W.kp.filter(k => Date.parse(k.t) >= since);
+    const col = k => css('--' + kpLevel(k.kp).s), cols = pts.map(k => Date.parse(k.t) > Date.now() ? hexA(col(k), 0.45) : col(k));
+    barChart('kp-' + el.dataset.ctx, el.querySelector('canvas'), pts.map(k => k.t), pts.map(k => k.kp), cols, {
+      label: 'Kp', yMin: 0, yMax: 9, yFmt: v => Number.isInteger(v) ? v : '', allTicks: true,
+      xFmt: l => { const d = new Date(l); return d.getHours() < 3 ? WD[d.getDay()] : ''; },
+      tipTitle: l => new Date(l).toLocaleString(undefined, { weekday: 'short', hour: '2-digit', minute: '2-digit' }),
+      tipLabel: x => `Kp ${x.parsed.y.toFixed(2)} · ${kpLevel(x.parsed.y).t}${Date.parse(pts[x.dataIndex].t) > Date.now() ? ' (forecast)' : ''}`
+    });
+  }
+} });
+const countdown = t => { const ms = Date.parse(t) - Date.now(); if (!fin(ms)) return ''; if (ms < 0) return 'launch time passed'; const d = Math.floor(ms / 864e5), h = Math.floor(ms % 864e5 / 3600e3), m = Math.floor(ms % 3600e3 / 60e3); return 'in ' + (d ? `${d} d ${h} h` : h ? `${h} h ${m} min` : `${m} min`); };
+const LSTAT = { Go: 'good', TBC: 'warn', TBD: 'warn', Hold: 'serious', 'In Flight': 'good', Success: 'good', Failure: 'critical' };
+card('launches', { name: 'Rocket launches', href: '#space', keys: ['launches'], render(el) {
+  const top = cardTop(el, 'Next rocket launches');
+  const g = gate(['launches']); if (g) return el.innerHTML = top + g;
+  const L = S.data.launches.filter(l => Date.parse(l.net) > Date.now() - 3 * 3600e3).slice(0, el.dataset.ctx === 'view' ? 10 : 3);
+  el.innerHTML = top + (L.length ? `<ul class="launch-list">${L.map(l => { const [rocket, mission] = l.name.split(' | '); return `<li><div><b>${esc(mission || l.name)}</b><div class="muted sm">${esc(rocket || '')}${l.lsp ? ' · ' + esc(l.lsp) : ''}</div><div class="muted sm">${esc(l.loc || '')}</div></div><div class="launch-when"><span class="mono sm">${esc(new Date(l.net).toLocaleString(undefined, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }))}</span><span class="sm">${esc(countdown(l.net))}</span>${l.status ? pill(l.statusName || l.status, LSTAT[l.status] || '') : ''}</div></li>`; }).join('')}</ul>` : '<p class="muted">No upcoming launches listed.</p>') + '<div class="muted sm">Times in your time zone. Dates often move; “Go” means the time is confirmed.</div>' + srcLine(['launches']);
+} });
+
+/* CSV download for any card with data */
+function csvCell(v) {
+  if (v == null) return '';
+  let s = String(v);
+  if (typeof v === 'string' && /^[=+\-@\t\r]/.test(s)) s = "'" + s; // stop spreadsheets reading text as a formula
+  return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+function downloadCSV(name, rows) {
+  if (!rows || !rows.length) { toast('Nothing to download yet', 'This card has no data loaded.'); return; }
+  const cols = Object.keys(rows[0]);
+  const text = [cols.join(','), ...rows.map(r => cols.map(c => csvCell(r[c])).join(','))].join('\r\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['﻿' + text], { type: 'text/csv;charset=utf-8' }));
+  a.download = `open-pulse-${name}-${isoDate(new Date())}.csv`;
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+}
+const D_ = () => S.data;
+const CSV = {
+  weather: () => { const d = D_().weather; if (!d) return []; const h = d.hourly, i0 = hourIdx(d); return h.time.slice(i0, i0 + 48).map((t, k) => ({ local_time: t, temperature_c: h.temperature_2m[i0 + k], feels_like_c: h.apparent_temperature[i0 + k], rain_chance_pct: h.precipitation_probability[i0 + k], uv_index: h.uv_index[i0 + k] })); },
+  air: () => { const c = D_().aqi && D_().aqi.current; return c ? [{ place: settings.city.name, local_time: c.time, us_aqi: c.us_aqi, category: aqiCat(c.us_aqi).t, ...Object.fromEntries(SUBS.map(s => [s.k + '_ug_m3', c[s.k]])) }] : []; },
+  aqnow: () => { const c = D_().aqi && D_().aqi.current; return c ? SUBS.map(s => ({ pollutant: s.n, us_aqi: c['us_aqi_' + s.k], concentration_ug_m3: c[s.k] })) : []; },
+  best: () => (D_().weather && D_().aqi) ? bestWindow(D_().weather, D_().aqi).hours.map(h => ({ local_time: h.t, us_aqi: h.aqi, category: h.cat.t, rain_chance_pct: h.rain, uv_index: h.uv, feels_like_c: h.feel, ruled_out: h.bad ? 'yes' : 'no', best_window: h.inWin ? 'yes' : 'no' })) : [],
+  aqfc: () => { const a = D_().aqi; if (!a) return []; const i0 = nowIdx(a.hourly, a.current.time); return a.hourly.time.slice(i0).map((t, k) => ({ local_time: t, us_aqi: a.hourly.us_aqi[i0 + k], category: aqiCat(a.hourly.us_aqi[i0 + k]).t })); },
+  aqtrend: () => { const a = D_().aqi; if (!a) return []; const today = a.current.time.slice(0, 10), p = {}; a.hourly.time.forEach((t, i) => { const d = t.slice(0, 10), v = a.hourly.us_aqi[i]; if (d <= today && fin(v)) p[d] = Math.max(p[d] ?? -1, v); }); return Object.keys(p).sort().map(d => ({ date: d, peak_us_aqi: p[d], category: aqiCat(p[d]).t })); },
+  places: () => ((D_().places && D_().places.list) || []).map(p => ({ place: p.name, region: p.region, lat: p.lat, lon: p.lon, temperature_c: p.w && p.w.current && p.w.current.temperature_2m, conditions: wmo(p.w && p.w.current && p.w.current.weather_code), us_aqi: p.a && p.a.current && p.a.current.us_aqi, pm2_5_ug_m3: p.a && p.a.current && p.a.current.pm2_5, worst_aqi_next_24h: peak24(p.a) })),
+  climate: () => { const w = D_().weather; if (!w || !D_().climate) return []; const dl = w.daily, t0 = todayIdx(w); return dl.time.slice(t0).map((d, k) => ({ date: d, forecast_high_c: dl.temperature_2m_max[t0 + k], normal_high_c: (climNormal(d) || [])[0], forecast_low_c: dl.temperature_2m_min[t0 + k], normal_low_c: (climNormal(d) || [])[1] })); },
+  events: () => (D_().events || []).map(e => { const p = evPoint(e) || {}; return { title: e.title, category: evMeta(evCat(e)).n, last_update_utc: p.date, lat: p.lat, lon: p.lon, source: (e.sources && e.sources[0] && e.sources[0].url) || e.link }; }),
+  crypto: () => (D_().crypto || []).map(r => ({ rank: r.market_cap_rank, name: r.name, symbol: String(r.symbol).toUpperCase(), currency: settings.currency, price: r.current_price, change_1h_pct: r.price_change_percentage_1h_in_currency, change_24h_pct: r.price_change_percentage_24h_in_currency, change_7d_pct: r.price_change_percentage_7d_in_currency, market_cap: r.market_cap })),
+  fx: () => { const d = D_().fx; return d ? Object.keys(d.rates).sort().map(c => ({ currency: c, name: currencyName(c), [`per_1_${d.base}`]: d.rates[c], [`${d.base}_per_1`]: 1 / d.rates[c], date: d.date })) : []; },
+  quake: () => ((D_().quakes && D_().quakes.features) || []).map(q => ({ time_utc: new Date(q.properties.time).toISOString(), magnitude: q.properties.mag, place: q.properties.place, depth_km: q.geometry.coordinates[2], lat: q.geometry.coordinates[1], lon: q.geometry.coordinates[0], tsunami_flag: q.properties.tsunami ? 'yes' : 'no', url: q.properties.url })),
+  iss: () => { const p = D_().iss; return p ? [{ time_utc: new Date(p.timestamp * 1000).toISOString(), lat: p.latitude, lon: p.longitude, altitude_km: p.altitude, speed_kmh: p.velocity, sunlight: p.visibility }] : []; },
+  hn: () => ((D_().hn && D_().hn.items) || []).map((i, n) => ({ rank: n + 1, title: i.title, url: i.url || `https://news.ycombinator.com/item?id=${i.id}`, points: i.score, comments: i.descendants || 0, posted_utc: new Date(i.time * 1000).toISOString() })),
+  wiki: () => wikiTop(50).map((a, n) => ({ rank: n + 1, article: a.titles?.normalized || a.title, views: a.views, url: a.content_urls?.desktop?.page })),
+  econ: () => { const ind = wbInd(); return ((D_().wb && D_().wb.rows) || []).filter(r => fin(r.value)).map(r => ({ place: r.country.value, year: r.date, value: r.value, measure: `${ind.name} (${ind.note})` })); },
+  country: () => { const c = ctryOf(), F = D_().ctryFacts && D_().ctryFacts.by; return c && F ? WB_FACTS.filter(f => F[f.id]).map(f => ({ country: c.name, measure: f.n, value: F[f.id].v, year: F[f.id].y })) : []; },
+  spacewx: () => ((D_().spaceWx && D_().spaceWx.kp) || []).map(k => ({ time_utc: k.t, kp: k.kp, type: k.obs, level: kpLevel(k.kp).t })),
+  launches: () => (D_().launches || []).map(l => ({ name: l.name, provider: l.lsp, launch_time_utc: l.net, status: l.statusName, location: l.loc, pad: l.pad, mission_type: l.type }))
+};
+Object.keys(CSV).forEach(id => { if (CARDS[id]) CARDS[id].csv = CSV[id]; });
+
+/* Search (Ctrl+K) */
+const PAL = { items: [], idx: 0, seq: 0 };
+function palBase(q) {
+  const ql = q.toLowerCase(), m = s => String(s || '').toLowerCase().includes(ql), out = [];
+  VIEWS.forEach(v => { if (!q || m(v.label) || m(v.title)) out.push({ g: 'Pages', t: v.label, s: v.title, run: () => goTo(v.id) }); });
+  if (q) {
+    Object.values(CARDS).forEach(c => { if (m(c.name)) out.push({ g: 'Cards', t: c.name, s: settings.pins.includes(c.id) ? 'On My dashboard' : 'Pin to My dashboard', run: () => { if (!settings.pins.includes(c.id)) { settings.pins.push(c.id); save('pins'); toast('Pinned to My dashboard', c.name); } goTo('mine'); } }); });
+    settings.places.filter(p => m(p.name) || m(p.region)).forEach(p => out.push({ g: 'Your places', t: p.name, s: 'Make this my main place', run: () => setCity({ name: p.name, region: p.region, lat: p.lat, lon: p.lon }) }));
+    (S.data.wbCountries || []).filter(c => !c.agg && (m(c.name) || m(c.capital) || m(c.id))).slice(0, 6).forEach(c => out.push({ g: 'Countries', t: c.name, s: [c.capital, c.region].filter(Boolean).join(' · '), run: () => openCountry(c.id) }));
+    (S.data.crypto || []).filter(r => m(r.name) || m(r.symbol)).slice(0, 5).forEach(r => out.push({ g: 'Coins', t: r.name, s: `${String(r.symbol).toUpperCase()} · ${fmtMoney(r.current_price)}`, run: () => openCoin(r.id) }));
+    FX_ALL.filter(c => m(c) || m(currencyName(c))).slice(0, 4).forEach(c => out.push({ g: 'Currencies', t: `${c} · ${currencyName(c)}`, s: c === settings.currency ? 'Your currency' : `Chart against ${settings.currency}`, run: () => { if (c !== settings.currency) { settings.fxPair = c; save('fxPair'); invalidate(['fxHist']); } goTo('markets'); } }));
+  }
+  [['Switch theme', () => $('#theme').click()], ['Share a link to this page', () => $('#share').click()], ['Refresh this page’s data', () => $('#refresh').click()]].forEach(([t, run]) => { if (!q || m(t)) out.push({ g: 'Actions', t, s: '', run }); });
+  return out;
+}
+function openCoin(id) {
+  const known = (S.data.crypto || []).some(r => r.id === id);
+  settings.coin = id; save('coin');
+  invalidate(known ? ['coinChart'] : ['crypto', 'coinChart']);
+  goTo('markets');
+}
+function palRender() {
+  const ul = $('#pal-list'); let g = '';
+  ul.innerHTML = PAL.items.map((it, i) => { const head = it.g !== g ? `<li class="pal-g" role="presentation">${esc(it.g)}</li>` : ''; g = it.g; return `${head}<li id="pal-${i}" role="option" aria-selected="${i === PAL.idx}" data-pal="${i}"><b>${esc(it.t)}</b>${it.s ? `<span>${esc(it.s)}</span>` : ''}</li>`; }).join('') || '<li class="pal-g" role="presentation">No matches</li>';
+  $('#pal-q').setAttribute('aria-activedescendant', PAL.items.length ? 'pal-' + PAL.idx : '');
+  const sel = document.getElementById('pal-' + PAL.idx); if (sel) sel.scrollIntoView({ block: 'nearest' });
+}
+const palSearch = debounce(async q => {
+  const my = PAL.seq;
+  const [geo, coins] = await Promise.all([
+    getJSON(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=5&language=en&format=json`).catch(() => null),
+    getJSON(`https://api.coingecko.com/api/v3/search?query=${encodeURIComponent(q)}`).catch(() => null)
+  ]);
+  if (my !== PAL.seq) return;
+  const places = ((geo && geo.results) || []).map(r => ({ g: 'Places', t: r.name, s: [r.admin1, r.country].filter(Boolean).join(', ') + ' · make main place', run: () => setCity({ name: r.name, region: [r.admin1, r.country].filter(Boolean).join(', '), lat: r.latitude, lon: r.longitude }) }));
+  const have = new Set((S.data.crypto || []).map(r => r.id));
+  const found = ((coins && coins.coins) || []).filter(c => !have.has(c.id)).slice(0, 5);
+  const more = found.map(c => ({ g: 'More coins', t: c.name, s: `${c.symbol}${c.market_cap_rank ? ' · rank ' + c.market_cap_rank : ''}`, run: () => openCoin(c.id) }));
+  // A well-known coin, or one whose name or symbol is exactly what was typed, outranks places of the same name.
+  const ql = q.toLowerCase(), coinFirst = found.some(c => (c.market_cap_rank && c.market_cap_rank <= 100) || c.name.toLowerCase() === ql || String(c.symbol).toLowerCase() === ql);
+  const extra = coinFirst ? [...more, ...places] : [...places, ...more];
+  if (extra.length) {
+    const bestFirst = PAL.items.findIndex(it => it.g === 'Actions' || it.g === 'Pages');
+    if (coinFirst && !PAL.items.some(it => it.g !== 'Pages' && it.g !== 'Actions')) { PAL.items = [...extra, ...PAL.items]; PAL.idx = 0; }
+    else PAL.items = bestFirst > 0 ? [...PAL.items.slice(0, bestFirst), ...extra, ...PAL.items.slice(bestFirst)] : PAL.items.concat(extra);
+    palRender();
+  }
+}, 300);
+function palUpdate() {
+  const q = $('#pal-q').value.trim(); PAL.seq++; PAL.idx = 0;
+  PAL.items = palBase(q); palRender();
+  if (q.length >= 2) palSearch(q);
+}
+function palOpen() {
+  const d = $('#palette'); if (!d || d.open) return;
+  if (!S.data.wbCountries && S.status.wbCountries !== 'loading') load('wbCountries');
+  $('#pal-q').value = ''; palUpdate();
+  try { d.showModal(); } catch { d.setAttribute('open', ''); }
+  $('#pal-q').focus();
+}
+function palRun(i) { const it = PAL.items[i]; if (!it) return; $('#palette').close(); it.run(); }
+$('#search-btn').addEventListener('click', palOpen);
+$('#pal-q').addEventListener('input', palUpdate);
+$('#pal-q').addEventListener('keydown', e => {
+  if (e.key === 'ArrowDown') { e.preventDefault(); PAL.idx = Math.min(PAL.items.length - 1, PAL.idx + 1); palRender(); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); PAL.idx = Math.max(0, PAL.idx - 1); palRender(); }
+  else if (e.key === 'Enter') { e.preventDefault(); palRun(PAL.idx); }
+});
+$('#pal-list').addEventListener('click', e => { const li = e.target.closest('[data-pal]'); if (li) palRun(+li.dataset.pal); });
+$('#palette').addEventListener('click', e => { if (e.target === e.currentTarget) e.currentTarget.close(); });
+document.addEventListener('keydown', e => {
+  const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement && document.activeElement.tagName || '');
+  if ((e.key === 'k' || e.key === 'K') && (e.ctrlKey || e.metaKey)) { e.preventDefault(); palOpen(); }
+  else if (e.key === '/' && !typing) { e.preventDefault(); palOpen(); }
+});
+
+/* Background alerts (needs the server version) */
+let pushCfg;
+async function getPushCfg() {
+  if (pushCfg !== undefined) return pushCfg;
+  try { const r = await fetch('api/config', { cache: 'no-store' }); const j = r.ok ? await r.json() : null; pushCfg = j && j.push && j.publicKey ? j : null; }
+  catch { pushCfg = null; }
+  return pushCfg;
+}
+const b64u = s => { const b = atob((s + '='.repeat((4 - s.length % 4) % 4)).replace(/-/g, '+').replace(/_/g, '/')); return Uint8Array.from(b, c => c.charCodeAt(0)); };
+const bgRules = () => ({ aqi: { ...settings.alerts.aqi, place: { name: settings.city.name, lat: settings.city.lat, lon: settings.city.lon } }, quake: settings.alerts.quake, coin: settings.alerts.coin });
+async function bgSubscribe() {
+  const cfg = await getPushCfg(); if (!cfg) throw new Error('Background alerts aren’t available on this copy of Open Pulse.');
+  if (!('PushManager' in window) || !navigator.serviceWorker) throw new Error('This browser can’t receive background alerts.');
+  if (Notification.permission !== 'granted' && (await Notification.requestPermission()) !== 'granted') throw new Error('Notifications weren’t allowed, so background alerts can’t be sent.');
+  const reg = await navigator.serviceWorker.ready;
+  const sub = (await reg.pushManager.getSubscription()) || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64u(cfg.publicKey) });
+  const r = await fetch('api/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ subscription: sub.toJSON(), rules: bgRules() }) });
+  if (!r.ok) throw new Error('The alert server didn’t accept the subscription. Try again later.');
+}
+async function bgUnsubscribe() {
+  try {
+    const reg = await navigator.serviceWorker.ready, sub = await reg.pushManager.getSubscription();
+    if (sub) { await fetch('api/subscribe', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ endpoint: sub.endpoint }) }).catch(() => {}); await sub.unsubscribe(); }
+  } catch {}
+}
+const bgSync = () => { if (settings.alerts.bg) bgSubscribe().catch(e => console.warn('[Open Pulse] background alerts', e)); };
+async function renderBg() {
+  const el = $('#al-bg'); if (!el) return;
+  const cfg = await getPushCfg();
+  if (!el.isConnected) return;
+  if (!cfg || !('PushManager' in window)) { el.innerHTML = '<p class="muted sm" style="margin:0">Alerts while Open Pulse is closed need the server version of the site and a browser that supports push notifications.</p>'; return; }
+  el.innerHTML = `<label class="check" for="al-bgc"><input id="al-bgc" type="checkbox"${settings.alerts.bg ? ' checked' : ''}>Also alert me when Open Pulse is closed</label><p class="muted sm" style="margin:0">The server checks every 10 minutes and sends a notification to this browser. On iPhone, add Open Pulse to your Home Screen first.</p>`;
+  $('#al-bgc').addEventListener('change', async e => {
+    const box = e.target; box.disabled = true;
+    try {
+      if (box.checked) { await bgSubscribe(); settings.alerts.bg = true; toast('Background alerts on', 'You’ll get notifications even with Open Pulse closed.'); }
+      else { await bgUnsubscribe(); settings.alerts.bg = false; toast('Background alerts off', 'Alerts now only show while Open Pulse is open.'); }
+      save('alerts');
+    } catch (err) { box.checked = !box.checked; toast('Couldn’t change background alerts', err.message); }
+    box.disabled = false;
+  });
+}
+
+/* Tech */
+view({
+  id: 'tech', label: 'Tech news', title: 'What the tech world is reading',
+  intro: 'The front page of Hacker News, refreshed every five minutes. Switch lists to see the newest posts, the all-time best, or Ask and Show threads.',
+  mount(root) {
+    root.insertAdjacentHTML('beforeend', `<div class="bar"><div class="seg" role="group" aria-label="Story list" id="hn-tabs">${[['top', 'Top'], ['new', 'New'], ['best', 'Best'], ['ask', 'Ask HN'], ['show', 'Show HN']].map(([k, t]) => `<button type="button" data-hn="${k}" aria-pressed="${settings.hnList === k}">${t}</button>`).join('')}</div></div><section class="panel" id="t-list"></section>`);
+    $('#hn-tabs').addEventListener('click', e => {
+      const b = e.target.closest('[data-hn]'); if (!b) return;
+      settings.hnList = b.dataset.hn; save('hnList');
+      $('#hn-tabs').querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b));
+      invalidate(['hn']);
+    });
+  },
+  regions: [
+    { sel: '#t-list', keys: ['hn'], render(el) {
+      const top = head('Stories', '30 shown');
+      const g = gate(['hn']); if (g) return el.innerHTML = top + g;
+      el.innerHTML = top + `<ol class="news">${S.data.hn.items.map((i, n) => {
+        const hid = encodeURIComponent(i.id), link = i.url ? safeUrl(i.url) : `https://news.ycombinator.com/item?id=${hid}`;
+        let dom = ''; try { dom = i.url ? new URL(i.url).hostname.replace(/^www\./, '') : ''; } catch {}
+        return `<li><span class="rk">${n + 1}</span><a class="t" href="${link}" target="_blank" rel="noopener">${esc(i.title)}</a><div class="meta">${dom ? `<span>${esc(dom)}</span>` : ''}<span class="mono">${fmtNum(i.score)} points</span><a href="https://news.ycombinator.com/item?id=${hid}" target="_blank" rel="noopener">${fmtNum(i.descendants || 0)} comments</a><span>${ago(i.time * 1000)}</span></div></li>`;
+      }).join('')}</ol>` + srcLine(['hn']);
+    } }
+  ]
+});
+
+/* Wikipedia */
+function wikiTop(n) {
+  const a = S.data.wiki?.mostread?.articles || [];
+  return a.filter(x => x.views && !/^(Special|Wikipedia|File|Portal|Help|Category|Template):/.test(x.title || '') && x.title !== 'Main_Page').slice(0, n);
+}
+const htmlText = h => { try { return new DOMParser().parseFromString(String(h || ''), 'text/html').body.textContent.trim(); } catch { return ''; } };
+view({
+  id: 'wiki', label: 'Wikipedia', title: 'What people are looking up',
+  intro: 'Wikipedia’s most-read articles from the latest full day, today’s featured article and picture, the news, and what happened on this date in history.',
+  mount(root) {
+    const langs = [['en', 'English'], ['de', 'Deutsch'], ['fr', 'Français'], ['es', 'Español'], ['it', 'Italiano'], ['ru', 'Русский'], ['ja', '日本語']];
+    root.insertAdjacentHTML('beforeend', `<div class="bar"><label class="field" for="k-lang"><span>Wikipedia edition</span><select id="k-lang" class="btn">${langs.map(([k, t]) => `<option value="${k}"${k === settings.wikiLang ? ' selected' : ''}>${t}</option>`).join('')}</select></label></div>
+      <section class="panel" id="k-read"></section>
+      <div class="g g-2"><section class="panel" id="k-tfa"></section><section class="panel" id="k-pod"></section></div>
+      <div class="g g-2"><section class="panel" id="k-news"></section><section class="panel" id="k-otd"></section></div>`);
+    $('#k-lang').addEventListener('change', debounce(e => { settings.wikiLang = e.target.value; save('wikiLang'); invalidate(['wiki']); }));
+  },
+  regions: [
+    { sel: '#k-read', keys: ['wiki'], render(el) {
+      const g = gate(['wiki']); if (g) return el.innerHTML = head('Most read') + g;
+      const md = S.data.wiki.mostread?.date;
+      const top = head('Most read' + (md ? ' on ' + esc(new Date(md.slice(0, 10) + 'T12:00Z').toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' })) : ''), 'Page views');
+      const arts = wikiTop(10);
+      if (!arts.length) return el.innerHTML = top + '<p class="muted">This edition hasn’t published a most-read list yet today.</p>' + srcLine(['wiki']);
+      const names = arts.map(a => a.titles?.normalized || a.title);
+      el.innerHTML = top + `<div class="chart h320"><canvas id="c-wk" aria-label="Most read Wikipedia articles by page views"></canvas></div><ol class="news">${arts.slice(0, 5).map((a, i) => `<li><span class="rk">${i + 1}</span><a class="t" href="${safeUrl(a.content_urls?.desktop?.page)}" target="_blank" rel="noopener">${esc(names[i])}</a><div class="meta"><span>${esc(a.description || '')}</span><span class="mono">${fmtNum(a.views)} views</span></div></li>`).join('')}</ol>` + srcLine(['wiki']);
+      barChart('wk', $('#c-wk'), names.map(n => n.length > 28 ? n.slice(0, 27) + '…' : n), arts.map(a => a.views), css('--s1'), { horizontal: true, label: 'Views', tipTitle: (l, i) => names[i], yFmt: v => fmtCompact(v, 1), tipLabel: c => fmtNum(c.parsed.x) + ' views' });
+    } },
+    { sel: '#k-tfa', keys: ['wiki'], render(el) {
+      const top = head('Featured article');
+      const g = gate(['wiki']); if (g) return el.innerHTML = top + g;
+      const t = S.data.wiki.tfa;
+      el.innerHTML = top + (t ? `<div class="feature"><div><h3><a href="${safeUrl(t.content_urls?.desktop?.page)}" target="_blank" rel="noopener">${esc(t.titles?.normalized || t.title)}</a></h3><p>${esc(t.extract || t.description || '')}</p></div>${t.thumbnail?.source ? `<img src="${safeUrl(t.thumbnail.source)}" alt="" loading="lazy">` : ''}</div>` : '<p class="muted">This edition has no featured article today.</p>') + srcLine(['wiki']);
+    } },
+    { sel: '#k-pod', keys: ['wiki'], render(el) {
+      const top = head('Picture of the day');
+      const g = gate(['wiki']); if (g) return el.innerHTML = top + g;
+      const p = S.data.wiki.image;
+      el.innerHTML = top + (p && p.thumbnail ? `<div class="pod"><a href="${safeUrl(p.file_page)}" target="_blank" rel="noopener"><img src="${safeUrl(p.thumbnail.source)}" alt="${esc(htmlText(p.description?.html || p.description?.text || '').slice(0, 200))}" loading="lazy"></a></div><p class="sm" style="margin:0;color:var(--ink-2)">${esc(htmlText(p.description?.html || p.description?.text || ''))}</p><p class="muted sm" style="margin:0">${esc(htmlText(p.artist?.html || p.artist?.text || ''))}${p.license?.type ? ' · ' + esc(p.license.type) : ''}</p>` : '<p class="muted">No picture today.</p>') + srcLine(['wiki']);
+    } },
+    { sel: '#k-news', keys: ['wiki'], render(el) {
+      const top = head('In the news');
+      const g = gate(['wiki']); if (g) return el.innerHTML = top + g;
+      const n = S.data.wiki.news || [];
+      el.innerHTML = top + (n.length ? `<ul class="otd">${n.slice(0, 6).map(s => { const lk = s.links?.[0]; return `<li style="grid-template-columns:1fr"><span>${esc(htmlText(s.story))}${lk ? ` <a href="${safeUrl(lk.content_urls?.desktop?.page)}" target="_blank" rel="noopener">Read more</a>` : ''}</span></li>`; }).join('')}</ul>` : '<p class="muted">No news items in this edition today.</p>') + srcLine(['wiki']);
+    } },
+    { sel: '#k-otd', keys: ['wiki'], render(el) {
+      const top = head('On this day');
+      const g = gate(['wiki']); if (g) return el.innerHTML = top + g;
+      const o = (S.data.wiki.onthisday || []).slice(0, 8);
+      el.innerHTML = top + (o.length ? `<ul class="otd">${o.map(e => `<li><b>${esc(e.year)}</b><span>${esc(e.text)}</span></li>`).join('')}</ul>` : '<p class="muted">Nothing listed for today in this edition.</p>') + srcLine(['wiki']);
+    } }
+  ]
+});
+
+/* ---------- router & rendering ---------- */
+let current = null, currentId = null;
+const viewKeys = v => [...new Set(v.regions.flatMap(r => r.keys))];
+const FOCUS_KEYS = ['coin', 'quake', 'qsort', 'fx', 'rmc', 'retry', 'pin', 'mv', 'usep'];
+function renderRegion(r) {
+  const el = $(r.sel); if (!el) return;
+  // A refresh rebuilds the panel; put keyboard focus back on the same control afterwards.
+  const a = document.activeElement, k = a && el.contains(a) && FOCUS_KEYS.find(n => a.dataset && a.dataset[n] !== undefined);
+  const sel = k ? `[data-${k}="${CSS.escape(a.dataset[k])}"]` : null;
+  try { r.render(el); } catch (e) { console.error('[Open Pulse] render', r.sel, e); }
+  if (sel) { const b = el.querySelector(sel); if (b) b.focus({ preventScroll: true }); }
+}
+function renderKey(k) { if (current) current.regions.filter(r => r.keys.includes(k)).forEach(renderRegion); }
+function notify(k) { updateNav(); renderKey(k); }
+function renderAll() { if (current) current.regions.forEach(renderRegion); }
+function viewStatus(v) {
+  const ks = viewKeys(v);
+  if (ks.some(k => S.status[k] === 'error' && S.data[k] === undefined)) return 'err';
+  if (ks.some(k => S.status[k] === 'loading')) return 'load';
+  if (ks.every(k => S.data[k] !== undefined)) return 'ok';
+  return '';
+}
+function buildNav() {
+  $('#nav').innerHTML = VIEWS.map(v => `<li><a href="#${v.id}" data-nav="${v.id}">${esc(v.label)}<span class="dot" data-dot="${v.id}" aria-hidden="true"></span></a></li>`).join('');
+}
+function updateNav() {
+  VIEWS.forEach(v => {
+    const d = document.querySelector(`[data-dot="${v.id}"]`); if (d) d.className = 'dot ' + viewStatus(v);
+    const a = document.querySelector(`[data-nav="${v.id}"]`); if (a) { if (v.id === currentId) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); }
+  });
+}
+function go(id) {
+  const v = VIEWS.find(x => x.id === id) || VIEWS[0];
+  Object.keys(charts).forEach(killChart); killMaps();
+  current = v; currentId = v.id;
+  const root = $('#main');
+  root.innerHTML = `<div class="vh"><div><h1>${esc(v.title)}</h1><p>${esc(v.intro)}</p></div></div>`;
+  v.mount(root);
+  renderAll(); updateNav();
+  document.title = v.id === 'overview' ? 'Open Pulse' : `${v.label} · Open Pulse`;
+  viewKeys(v).forEach(ensure);
+  const a = document.querySelector(`[data-nav="${v.id}"]`); if (a && a.scrollIntoView && matchMedia('(max-width:900px)').matches) a.scrollIntoView({ block: 'nearest', inline: 'center' });
+}
+window.addEventListener('hashchange', () => { go(location.hash.slice(1)); window.scrollTo({ top: 0 }); });
+
+/* ---------- global events ---------- */
+document.addEventListener('click', e => {
+  const t = e.target;
+  const r = t.closest('[data-retry]'); if (r) { S.fail[r.dataset.retry] = 0; load(r.dataset.retry); return; }
+  const c = t.closest('[data-coin]'); if (c) { const same = settings.coin === c.dataset.coin; settings.coin = c.dataset.coin; save('coin'); if (same) renderKey('crypto'); else { renderKey('crypto'); invalidate(['coinChart']); } const p = $('#m-coin'); if (p && p.getBoundingClientRect().top < 0) p.scrollIntoView({ behavior: RM ? 'auto' : 'smooth' }); return; }
+  const f = t.closest('[data-fx]'); if (f) { settings.fxPair = f.dataset.fx; save('fxPair'); renderKey('fx'); invalidate(['fxHist']); return; }
+  const q = t.closest('[data-qsort]'); if (q) { settings.quakeSort = q.dataset.qsort; save('quakeSort'); renderKey('quakes'); return; }
+  const qk = t.closest('[data-quake]'); if (qk && maps.q) { const mk = maps.q.byId[qk.dataset.quake]; if (mk) { $('#q-mapbox').scrollIntoView({ behavior: RM ? 'auto' : 'smooth', block: 'center' }); if (RM) { maps.q.map.setView(mk.getLatLng(), 5); mk.openPopup(); } else { maps.q.map.flyTo(mk.getLatLng(), 5, { duration: 1 }); setTimeout(() => mk.openPopup(), 1000); } } return; }
+  const cv = t.closest('[data-csv]'); if (cv) { const c = CARDS[cv.dataset.csv]; if (c && c.csv) { try { downloadCSV(c.id, c.csv()); } catch (err) { toast('Couldn’t build the file', err.message); } } return; }
+  const pn = t.closest('[data-pin]'); if (pn) {
+    const id = pn.dataset.pin, i = settings.pins.indexOf(id), on = i < 0;
+    if (on) settings.pins.push(id); else settings.pins.splice(i, 1);
+    save('pins');
+    document.querySelectorAll(`[data-pin="${id}"]`).forEach(b => { b.setAttribute('aria-pressed', String(on)); b.textContent = on ? 'Pinned' : 'Pin'; b.setAttribute('aria-label', `${on ? 'Remove' : 'Add'} ${CARDS[id].name} ${on ? 'from' : 'to'} My dashboard`); });
+    toast(on ? 'Pinned to My dashboard' : 'Removed from My dashboard', CARDS[id].name);
+    return;
+  }
+  const mv = t.closest('[data-mv]'); if (mv) {
+    const [id, d] = mv.dataset.mv.split('|'), i = settings.pins.indexOf(id), j = i + +d;
+    if (i < 0 || j < 0 || j >= settings.pins.length) return;
+    [settings.pins[i], settings.pins[j]] = [settings.pins[j], settings.pins[i]]; save('pins'); go('mine');
+    const b = document.querySelector(`[data-mv="${CSS.escape(mv.dataset.mv)}"]`); if (b) b.focus();
+    return;
+  }
+  const un = t.closest('[data-unpin]'); if (un) { settings.pins = settings.pins.filter(x => x !== un.dataset.unpin); save('pins'); go('mine'); return; }
+  const us = t.closest('[data-usep]'); if (us) { const p = settings.places[+us.dataset.usep]; if (p) setCity({ name: p.name, region: p.region, lat: p.lat, lon: p.lon }); return; }
+  const rp = t.closest('[data-rmp]'); if (rp) { settings.places = settings.places.filter((_, i) => i !== +rp.dataset.rmp); save('places'); renderPlaceChips(); invalidate(['places']); return; }
+  const rm = t.closest('[data-rmc]'); if (rm) { settings.wbCountries = settings.wbCountries.filter(x => x.id !== rm.dataset.rmc); save('wbCountries'); renderChips(); renderKey('wbCountries'); invalidate(['wb']); return; }
+});
+document.addEventListener('keydown', e => {
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('tr.pick')) { e.preventDefault(); e.target.click(); }
+  if (e.key === 'Escape' && !$('#city-pop').hidden) closeCity(true);
+});
+
+/* currency */
+$('#cur-sel').innerHTML = CURRENCIES.map(c => `<option value="${c}"${c === settings.currency ? ' selected' : ''}>${c}</option>`).join('');
+$('#cur-sel').addEventListener('change', e => {
+  settings.currency = e.target.value; save('currency');
+  const to = $('#fx-to'); if (to) to.value = settings.currency;
+  invalidate(['crypto', 'coinChart', 'cglobal', 'fx', 'fxHist']);
+});
+
+/* place */
+function setCity(c) {
+  settings.city = c; save('city');
+  $('#city-name').textContent = c.name;
+  closeCity(true);
+  invalidate(['weather', 'aqi', 'climate']);
+  renderKey('places');
+  bgSync();
+}
+function closeCity(refocus) {
+  if ($('#city-pop').hidden) return;
+  $('#city-pop').hidden = true; $('#city-btn').setAttribute('aria-expanded', 'false');
+  if (refocus) $('#city-btn').focus();
+}
+$('.city').addEventListener('focusout', e => { if (e.relatedTarget && !e.currentTarget.contains(e.relatedTarget)) closeCity(); });
+$('#city-name').textContent = settings.city.name;
+$('#city-btn').addEventListener('click', () => {
+  const p = $('#city-pop'), open = p.hidden; p.hidden = !open; $('#city-btn').setAttribute('aria-expanded', String(open));
+  if (open) setTimeout(() => $('#city-q').focus(), 0);
+});
+document.addEventListener('pointerdown', e => { if (!$('#city-pop').hidden && !e.target.closest('.city')) closeCity(); });
+let cityTimer, cityResults = [], citySeq = 0;
+$('#city-q').addEventListener('input', e => {
+  clearTimeout(cityTimer);
+  const q = e.target.value.trim(), ul = $('#city-res'), my = ++citySeq;
+  if (q.length < 2) { ul.innerHTML = ''; return; }
+  cityTimer = setTimeout(async () => {
+    ul.innerHTML = '<li class="muted sm" style="padding:8px">Searching…</li>';
+    try {
+      const d = await getJSON(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=7&language=en&format=json`);
+      if (my !== citySeq) return; // a newer search has started; drop this answer
+      cityResults = d.results || [];
+      ul.innerHTML = cityResults.length ? cityResults.map((r, i) => `<li><button type="button" data-city="${i}">${esc(r.name)}<small>${esc([r.admin1, r.country].filter(Boolean).join(', '))}</small></button></li>`).join('') : '<li class="muted sm" style="padding:8px">No places match that name.</li>';
+    } catch (err) { if (my === citySeq) ul.innerHTML = `<li class="muted sm" style="padding:8px">${esc(err.message)}</li>`; }
+  }, 300);
+});
+$('#city-res').addEventListener('click', e => {
+  const b = e.target.closest('[data-city]'); if (!b) return;
+  const r = cityResults[+b.dataset.city];
+  setCity({ name: r.name, region: [r.admin1, r.country].filter(Boolean).join(', '), lat: r.latitude, lon: r.longitude });
+});
+$('#city-geo').addEventListener('click', () => {
+  const b = $('#city-geo');
+  if (!navigator.geolocation) { b.textContent = 'Location isn’t available in this browser'; return; }
+  b.textContent = 'Finding you…';
+  navigator.geolocation.getCurrentPosition(
+    // Rounded to ~1 km: enough for a forecast, and the stored and sent position stays coarse.
+    p => { b.textContent = 'Use my location'; setCity({ name: 'My location', region: `${p.coords.latitude.toFixed(2)}°, ${p.coords.longitude.toFixed(2)}°`, lat: +p.coords.latitude.toFixed(2), lon: +p.coords.longitude.toFixed(2) }); },
+    () => { b.textContent = 'Location was blocked. Search instead.'; },
+    { timeout: 10000, maximumAge: 600000 }
+  );
+});
+
+/* refresh + theme */
+$('#refresh').addEventListener('click', () => { if (current) viewKeys(current).forEach(k => { S.fail[k] = 0; load(k); }); });
+const THEMES = ['auto', 'light', 'dark'];
+function applyTheme() {
+  if (settings.theme === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', settings.theme);
+  $('#theme-lbl').textContent = settings.theme[0].toUpperCase() + settings.theme.slice(1);
+  $('#theme').setAttribute('aria-label', `Theme: ${settings.theme}. Change theme`);
+}
+$('#theme').addEventListener('click', () => {
+  settings.theme = THEMES[(THEMES.indexOf(settings.theme) + 1) % 3]; save('theme'); applyTheme(); renderAll();
+});
+try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { if (settings.theme === 'auto') renderAll(); }); } catch {}
+
+/* scheduler */
+function tick() {
+  document.querySelectorAll('[data-at]').forEach(s => { s.textContent = ago(+s.dataset.at); });
+  if (document.hidden || !current) return;
+  [...new Set([...viewKeys(current), ...alertKeys()])].forEach(ensure);
+}
+setInterval(tick, 5000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) tick(); });
+
+/* share a link to this view and place */
+$('#share').addEventListener('click', async () => {
+  const c = settings.city, u = new URL(location.href);
+  u.search = new URLSearchParams({ place: c.name, lat: (+c.lat).toFixed(4), lon: (+c.lon).toFixed(4) }).toString();
+  u.hash = currentId || '';
+  const link = u.toString();
+  try { if (navigator.share && matchMedia('(pointer: coarse)').matches) { await navigator.share({ title: 'Open Pulse · ' + c.name, url: link }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
+  try { await navigator.clipboard.writeText(link); toast('Link copied', `Anyone who opens it sees this page for ${c.name}.`); }
+  catch { toast('Copy this link', link); }
+});
+// A shared link carries ?place=&lat=&lon= (or ?city=Name); apply it once, then tidy the address bar.
+function applyLinkPlace() {
+  const q = new URLSearchParams(location.search), lat = parseFloat(q.get('lat')), lon = parseFloat(q.get('lon'));
+  const tidy = () => { try { history.replaceState(null, '', location.pathname + location.hash); } catch {} };
+  if (fin(lat) && fin(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180) {
+    settings.city = { name: String(q.get('place') || 'Shared place').slice(0, 80), region: `${lat.toFixed(2)}°, ${lon.toFixed(2)}°`, lat, lon }; save('city');
+    $('#city-name').textContent = settings.city.name; tidy();
+  } else if (q.get('city')) {
+    const name = q.get('city').slice(0, 80); tidy();
+    getJSON(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(name)}&count=1&language=en&format=json`)
+      .then(d => { const r = d.results && d.results[0]; if (r) setCity({ name: r.name, region: [r.admin1, r.country].filter(Boolean).join(', '), lat: r.latitude, lon: r.longitude }); else toast('Place not found', `No place called “${name}”.`); })
+      .catch(() => {});
+  }
+}
+
+/* install as an app, offline notice */
+let installEvt = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; $('#install').hidden = false; });
+window.addEventListener('appinstalled', () => { installEvt = null; $('#install').hidden = true; toast('Installed', 'Open Pulse is now on your device.'); });
+$('#install').addEventListener('click', async () => { if (!installEvt) return; installEvt.prompt(); try { await installEvt.userChoice; } catch {} installEvt = null; $('#install').hidden = true; });
+const netState = () => { $('#offline').hidden = navigator.onLine; };
+window.addEventListener('offline', netState);
+window.addEventListener('online', () => { netState(); if (current) viewKeys(current).forEach(k => { S.fail[k] = 0; load(k); }); });
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+  window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(e => console.warn('[Open Pulse] offline support unavailable', e)); });
+}
+
+/* boot */
+if (window.Chart) { Chart.defaults.font.family = getComputedStyle(document.body).fontFamily; }
+applyTheme(); buildNav(); applyLinkPlace(); netState();
+go(location.hash.slice(1) || 'overview');
+})();
+</script>
+</body>
+</html>

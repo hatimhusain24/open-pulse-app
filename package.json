@@ -1,0 +1,16 @@
+{
+  "name": "open-pulse",
+  "version": "1.2.0",
+  "private": true,
+  "description": "Live dashboard of free public data, with a small alert server for push notifications.",
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "python -m http.server 8765"
+  },
+  "dependencies": {
+    "web-push": "3.6.7"
+  }
+}
