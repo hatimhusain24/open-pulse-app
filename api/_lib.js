@@ -3,8 +3,13 @@ import { createHash } from 'node:crypto';
 
 export const fin = n => n !== null && n !== undefined && n !== '' && Number.isFinite(+n);
 
-const storeUrl = () => process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
-const storeToken = () => process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+// Vercel's Upstash integration may add a custom prefix (e.g. STORAGE_KV_REST_API_URL), so match on the suffix.
+const envEnding = suffixes => {
+  const key = Object.keys(process.env).find(k => suffixes.some(s => k === s || k.endsWith('_' + s)) && !/READ_ONLY/.test(k));
+  return key ? process.env[key] : undefined;
+};
+const storeUrl = () => envEnding(['KV_REST_API_URL', 'UPSTASH_REDIS_REST_URL']);
+const storeToken = () => envEnding(['KV_REST_API_TOKEN', 'UPSTASH_REDIS_REST_TOKEN']);
 export const hasStore = () => Boolean(storeUrl() && storeToken());
 
 // One Redis command over Upstash's REST API, e.g. redis('SADD', 'subs', id).
