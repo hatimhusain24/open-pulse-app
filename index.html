@@ -249,6 +249,13 @@ tr.pick[aria-selected="true"] td{background:var(--accent-soft)}
 .seg button:last-child{border-right:0}
 .seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
 .seg button:focus-visible{outline-offset:-3px}
+.rb{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:6px 10px;margin:2px 0 8px}
+.seg.xs{max-width:100%;overflow-x:auto}
+.seg.xs button{padding:4px 7px;font-size:11.5px}
+.seg.xs button:disabled{opacity:.35;cursor:not-allowed}
+.com-tbl td small{color:var(--muted);font-size:11px;margin-left:6px}
+.com-tbl td{padding-top:5px;padding-bottom:5px}
+#c-mcx .rate-row{padding:5px 8px}
 
 /* states */
 .state{display:flex;flex-direction:column;gap:8px;padding:2px 0}
@@ -511,9 +518,10 @@ dialog.dlg::backdrop{background:rgba(5,8,14,.55);backdrop-filter:blur(2px)}
   .pg-overview{grid-template-areas:"wx wx wx wx aq aq aq bt bt bt bt bt" "mk mk mk mk pl pl pl pl ea ea ea ea" "sp sp sp sp hn hn hn hn wk wk wk wk";grid-template-rows:minmax(0,1fr) minmax(0,1.1fr) minmax(0,1.1fr)}
   .pg-weather{grid-template-areas:"now now now now hrs hrs hrs hrs hrs hrs hrs hrs" "wk wk wk wk wk wk wk wk cl cl cl cl";grid-template-rows:minmax(0,1.25fr) minmax(0,1fr)}
   .pg-air{grid-template-areas:"now now now now bt bt bt bt pl pl pl pl" "fc fc fc fc fc fc fc fc cal cal cal cal";grid-template-rows:minmax(0,1fr) minmax(0,1fr)}
-  .pg-markets{grid-template-areas:"coin coin coin coin coin tbl tbl tbl tbl tbl tbl tbl" "conv conv conv conv fxh fxh fxh fxh fxh rt rt rt";grid-template-rows:minmax(0,1.2fr) minmax(0,1fr)}
+  .pg-markets{grid-template-areas:"coin coin coin coin coin tbl tbl tbl tbl tbl tbl tbl" "conv conv conv conv fxh fxh fxh fxh fxh rt rt rt";grid-template-rows:minmax(0,1.5fr) minmax(0,1fr)}
   .pg-earth{grid-template-areas:"map map map map map map map map side side side side";grid-template-rows:minmax(0,1fr)}
   .pg-space{grid-template-areas:"map map map map map map map wx wx wx wx wx" "map map map map map map map ln ln ln ln ln";grid-template-rows:minmax(0,1.15fr) minmax(0,1fr)}
+  .pg-commodities{grid-template-areas:"tbl tbl tbl tbl tbl chart chart chart chart chart chart chart" "mcx mcx mcx mcx mcx chart chart chart chart chart chart chart";grid-template-rows:minmax(0,1.55fr) minmax(0,1fr)}
   .pg-economy{grid-template-areas:"chart chart chart chart chart chart chart chart tbl tbl tbl tbl";grid-template-rows:minmax(0,1fr)}
   .pg-country{grid-template-areas:"head head head head head head head live live live live live" "hol hol hol hol hol hol lw lw lw lw lw lw";grid-template-rows:minmax(0,1.05fr) minmax(0,1fr)}
   .pg-tech{grid-template-areas:"list";grid-template-rows:minmax(0,1fr);grid-template-columns:minmax(0,1fr)}
@@ -707,7 +715,9 @@ const settings = {
   theme: store.get('theme', 'auto'),
   coin: store.get('coin', 'bitcoin'),
   fxPair: store.get('fxPair', null),
-  fxRange: store.get('fxRange', '3M'),
+  rng: store.get('rng', {}),
+  itv: store.get('itv', {}),
+  com: store.get('com', 'GC=F'),
   quakeLevel: store.get('quakeLevel', '2.5'),
   quakePeriod: store.get('quakePeriod', 'day'),
   quakeSort: store.get('quakeSort', 'time'),
@@ -740,7 +750,10 @@ if (!['hour', 'day', 'week', 'month'].includes(settings.quakePeriod)) settings.q
 if (!['time', 'mag'].includes(settings.quakeSort)) settings.quakeSort = 'time';
 if (!['top', 'new', 'best', 'ask', 'show'].includes(settings.hnList)) settings.hnList = 'top';
 if (!['en', 'de', 'fr', 'es', 'it', 'ru', 'ja'].includes(settings.wikiLang)) settings.wikiLang = 'en';
-if (!['1M', '3M', '1Y', '5Y'].includes(settings.fxRange)) settings.fxRange = '3M';
+const RANGES = ['1D', '5D', '7D', '15D', '1M', '3M', '6M', 'YTD', '1Y', '5Y', 'All'];
+settings.rng = { coin: '7D', fx: '3M', com: '1M', ...(settings.rng && typeof settings.rng === 'object' ? settings.rng : {}) };
+Object.keys(settings.rng).forEach(k => { if (!RANGES.includes(settings.rng[k])) settings.rng[k] = { coin: '7D', fx: '3M', com: '1M' }[k] || '1M'; });
+settings.itv = settings.itv && typeof settings.itv === 'object' ? settings.itv : {};
 if (typeof settings.coin !== 'string') settings.coin = 'bitcoin';
 settings.follow = settings.follow !== false;
 settings.wbCountries = (Array.isArray(settings.wbCountries) ? settings.wbCountries : [])
@@ -763,7 +776,6 @@ settings.alerts = {
 };
 const save = k => store.set(k, settings[k]);
 const fxPair = () => { let p = settings.fxPair; if (!p || p === settings.currency || !FX_ALL.includes(p)) p = settings.currency === 'USD' ? 'EUR' : 'USD'; return p; };
-const rangeStart = r => { const days = { '1M': 31, '3M': 92, '1Y': 366, '5Y': 1827 }[r] || 92; return isoDate(new Date(Date.now() - days * 864e5)); };
 
 const WB_IND = [
   { id: 'NY.GDP.MKTP.CD', name: 'GDP', unit: 'usd', note: 'current US$' },
@@ -788,6 +800,95 @@ function fmtInd(v, unit) {
   return fmtCompact(v, 2);
 }
 const SERIES = ['--s1', '--s2', '--s3', '--s4', '--s5', '--s6', '--s7', '--s8'];
+
+/* ---------- chart ranges and candle sizes (TradingView-style) ---------- */
+const COMMODITIES = [
+  { s: 'GC=F', n: 'Gold', ex: 'COMEX', u: 'troy oz' }, { s: 'SI=F', n: 'Silver', ex: 'COMEX', u: 'troy oz' },
+  { s: 'PL=F', n: 'Platinum', ex: 'NYMEX', u: 'troy oz' }, { s: 'PA=F', n: 'Palladium', ex: 'NYMEX', u: 'troy oz' },
+  { s: 'HG=F', n: 'Copper', ex: 'COMEX', u: 'lb' }, { s: 'CL=F', n: 'WTI crude oil', ex: 'NYMEX', u: 'barrel' },
+  { s: 'BZ=F', n: 'Brent crude oil', ex: 'ICE', u: 'barrel' }, { s: 'NG=F', n: 'Natural gas', ex: 'NYMEX', u: 'MMBtu' }
+];
+if (!COMMODITIES.some(c => c.s === settings.com)) settings.com = 'GC=F';
+const comOf = s => COMMODITIES.find(c => c.s === s) || COMMODITIES[0];
+const ITV = { '1m': [60, '1 min'], '5m': [300, '5 min'], '15m': [900, '15 min'], '30m': [1800, '30 min'], '1h': [3600, '1 hour'], '4h': [14400, '4 hours'], '1D': [86400, '1 day'], '1W': [604800, '1 week'], '1M': [2629800, '1 month'], '1Y': [31557600, '1 year'] };
+const rangeDays = r => {
+  if (r === 'YTD') return Math.max(2, Math.ceil((Date.now() - new Date(new Date().getFullYear(), 0, 1)) / 864e5) + 1);
+  return { '1D': 1, '5D': 5, '7D': 7, '15D': 15, '1M': 30, '3M': 90, '6M': 180, '1Y': 365, '5Y': 1826 }[r] || Infinity;
+};
+// What each source can give, as the smallest candle for a window and the candles it serves directly (the rest are built by grouping).
+const FINEST = { yahoo: d => d <= 7 ? '1m' : d <= 60 ? '5m' : d <= 730 ? '1h' : '1D', cg: d => d <= 1 ? '5m' : d <= 90 ? '1h' : '1D', fx: () => '1D' };
+const NATIVE = { yahoo: ['1m', '5m', '15m', '30m', '1h', '1D', '1W', '1M'], cg: ['5m', '1h', '1D'], fx: ['1D'] };
+function validItv(src, range) {
+  const d = rangeDays(range), min = ITV[FINEST[src](d)][0];
+  return Object.keys(ITV).filter(k => ITV[k][0] >= min && (d === Infinity || ITV[k][0] <= d * 43200));
+}
+function autoItv(src, range) {
+  const v = validItv(src, range), d = rangeDays(range);
+  if (!v.length) return '1D';
+  if (d === Infinity) return v.includes('1W') ? '1W' : v[v.length - 1];
+  return v.find(k => d * 86400 / ITV[k][0] <= 400) || v[v.length - 1];
+}
+function chosenItv(key, src) { const r = settings.rng[key], w = settings.itv[key]; return validItv(src, r).includes(w) ? w : autoItv(src, r); }
+const nativeFor = (src, itv) => { const n = NATIVE[src].filter(k => ITV[k][0] <= ITV[itv][0]); return n[n.length - 1] || NATIVE[src][0]; };
+function bucketKey(t, itv) {
+  if (itv === '1W') return Math.floor((t / 864e5 + 3) / 7);
+  if (itv === '1M') { const d = new Date(t); return d.getUTCFullYear() * 12 + d.getUTCMonth(); }
+  if (itv === '1Y') return new Date(t).getUTCFullYear();
+  return Math.floor(t / 1000 / ITV[itv][0]);
+}
+// Group points into candles of the chosen size, keeping the last value of each.
+function resample(t, v, itv) {
+  const T = [], V = []; let last = null;
+  for (let i = 0; i < t.length; i++) { const k = bucketKey(t[i], itv); if (k === last) { T[T.length - 1] = t[i]; V[V.length - 1] = v[i]; } else { T.push(t[i]); V.push(v[i]); last = k; } }
+  return { t: T, v: V };
+}
+const memo = new Map();
+async function memoized(key, ttl, fn) { const h = memo.get(key); if (h && Date.now() - h.at < ttl) return h.v; const v = await fn(); memo.set(key, { at: Date.now(), v }); return v; }
+async function seriesYahoo(sym, range, itv) {
+  const nat = nativeFor('yahoo', itv), yi = { '1m': '1m', '5m': '5m', '15m': '15m', '30m': '30m', '1h': '60m', '1D': '1d', '1W': '1wk', '1M': '1mo' }[nat];
+  let qs = `interval=${yi}`;
+  if (range === 'All') qs += '&range=max'; else if (range === '1D') qs += '&range=1d'; else if (range === '5D') qs += '&range=5d';
+  else { const p2 = Math.floor(Date.now() / 1000), p1 = range === 'YTD' ? Math.floor(new Date(new Date().getFullYear(), 0, 1) / 1000) : p2 - rangeDays(range) * 86400; qs += `&p1=${p1}&p2=${p2}`; }
+  const j = await memoized(`y|${sym}|${range}|${yi}`, 60e3, async () => {
+    const r = await getJSON(`/api/quote?s=${encodeURIComponent(sym)}&${qs}`, 30000);
+    if (r.error) throw new Error(r.error);
+    return r;
+  });
+  const s = resample(j.t, j.c, itv); return { ...j, t: s.t, v: s.v, c: undefined };
+}
+async function seriesCG(id, cur, range, itv, sym) {
+  const d = rangeDays(range);
+  let limited = false, dcur = cur;
+  if (d > 365 && sym) { // the free CoinGecko tier stops at one year; Yahoo has the full history, in US dollars
+    try { const s = await seriesYahoo(sym.toUpperCase() + '-USD', range, itv); return { t: s.t, v: s.v, cur: 'USD', limited: cur !== 'USD' }; } catch (e) { console.warn('[Open Pulse] long history', e); }
+  }
+  const days = d > 365 ? 365 : d; limited = d > 365;
+  const nat = nativeFor('cg', itv);
+  const j = await memoized(`c|${id}|${cur}|${days}`, 60e3, () => getJSON(`https://api.coingecko.com/api/v3/coins/${encodeURIComponent(id)}/market_chart?vs_currency=${cur.toLowerCase()}&days=${days}`, 30000));
+  const P = (j.prices || []).filter(p => fin(p[1])), s = nat === itv ? { t: P.map(p => p[0]), v: P.map(p => p[1]) } : resample(P.map(p => p[0]), P.map(p => p[1]), itv);
+  return { t: s.t, v: s.v, cur: dcur, limited };
+}
+async function seriesFX(pair, base, range, itv) {
+  const d = rangeDays(range), start = d === Infinity ? '1999-01-04' : isoDate(new Date(Date.now() - d * 864e5));
+  const j = await memoized(`f|${pair}|${base}|${start}`, 5 * 60e3, () => getJSON(`https://api.frankfurter.dev/v1/${start}..?base=${pair}&symbols=${base}`, 30000));
+  const days = Object.keys(j.rates || {}).sort(), t = days.map(k => Date.parse(k + 'T12:00:00Z')), v = days.map(k => j.rates[k][base]);
+  return resample(t, v, itv);
+}
+// The range buttons and candle-size menu that sit above a chart. key: 'coin' | 'fx' | 'com'; src: which source feeds it.
+function rangeBar(key, src) {
+  const r = settings.rng[key], cur = validItv(src, r).includes(settings.itv[key]) ? settings.itv[key] : 'auto';
+  const opt = (v, t, ok) => `<option value="${v}"${v === cur ? ' selected' : ''}${ok ? '' : ' disabled'}>${t}</option>`;
+  return `<div class="rb"><div class="seg xs" role="group" aria-label="Time range">${RANGES.map(x => `<button type="button" data-rng="${key}|${x}" aria-pressed="${x === r}"${validItv(src, x).length ? '' : ' disabled'}>${x}</button>`).join('')}</div>
+    <select class="btn sm" data-itv="${key}" aria-label="Candle size">${opt('auto', `Auto · ${ITV[autoItv(src, r)][1]}`, true)}${Object.keys(ITV).map(k => opt(k, ITV[k][1], validItv(src, r).includes(k))).join('')}</select></div>`;
+}
+// Axis and tooltip date text that fits the window and the candle size.
+function timeFmt(range, itv) {
+  const d = rangeDays(range), intra = ITV[itv][0] < 86400, o = (x, f) => new Date(x).toLocaleString(undefined, f);
+  const tick = intra && d <= 2 ? x => o(x, { hour: '2-digit', minute: '2-digit' }) : d <= 400 ? x => o(x, { day: 'numeric', month: 'short' }) : d <= 3000 ? x => o(x, { month: 'short', year: '2-digit' }) : x => o(x, { year: 'numeric' });
+  const tip = x => intra ? o(x, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : itv === '1M' ? o(x, { month: 'long', year: 'numeric' }) : itv === '1Y' ? o(x, { year: 'numeric' }) : o(x, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' });
+  return { tick: l => tick(l), tip: l => tip(l) };
+}
+const tickDigits = (a, b) => Math.min(8, Math.max(0, Math.ceil(-Math.log10(Math.max(1e-9, (b - a) || Math.abs(a) || 1) / 4)) + 1));
 
 /* ---------- data sources ---------- */
 let issTrail = [];
@@ -833,9 +934,20 @@ const SRC = {
   } },
   // The markets sparkline is always in US dollars, so the selected coin's chart is fetched in the chosen currency.
   coinChart: { name: 'CoinGecko', home: 'https://www.coingecko.com/', ttl: 5 * 60e3, load: async () => {
-    const id = settings.coin, cur = settings.currency;
-    const d = await getJSON(`https://api.coingecko.com/api/v3/coins/${encodeURIComponent(id)}/market_chart?vs_currency=${cur.toLowerCase()}&days=7`);
-    return { id, cur, prices: (d.prices || []).filter(p => fin(p[1])) };
+    const id = settings.coin, cur = settings.currency, range = settings.rng.coin, itv = chosenItv('coin', 'cg');
+    const row = (S.data.crypto || []).find(r => r.id === id);
+    const s = await seriesCG(id, cur, range, itv, row && row.symbol);
+    return { id, cur, dcur: s.cur, range, itv, limited: s.limited, t: s.t, v: s.v };
+  } },
+  comList: { name: 'Yahoo Finance · futures, delayed', home: 'https://finance.yahoo.com/commodities/', ttl: 2 * 60e3, load: async () => {
+    const r = await getJSON(`/api/quote?list=${encodeURIComponent(COMMODITIES.map(c => c.s).join(','))}`, 30000);
+    if (!r.list || !r.list.some(x => fin(x.price))) throw new Error((r.error) || 'The price feed returned nothing.');
+    return r.list;
+  } },
+  comChart: { name: 'Yahoo Finance · futures, delayed', home: 'https://finance.yahoo.com/commodities/', ttl: 2 * 60e3, load: async () => {
+    const sym = settings.com, range = settings.rng.com, itv = chosenItv('com', 'yahoo');
+    const s = await seriesYahoo(sym, range, itv);
+    return { sym, range, itv, t: s.t, v: s.v };
   } },
   cglobal: { name: 'CoinGecko', home: 'https://www.coingecko.com/en/global-charts', ttl: 5 * 60e3, load: async () => (await getJSON('https://api.coingecko.com/api/v3/global')).data },
   fx: { name: 'Frankfurter · ECB reference rates', home: 'https://frankfurter.dev/', ttl: 60 * 60e3, load: async () => {
@@ -848,9 +960,9 @@ const SRC = {
     return { date: d.date, base: B, rates };
   } },
   fxHist: { name: 'Frankfurter · ECB reference rates', home: 'https://frankfurter.dev/', ttl: 60 * 60e3, load: async () => {
-    const pair = fxPair(), range = settings.fxRange;
-    const d = await getJSON(`https://api.frankfurter.dev/v1/${rangeStart(range)}..?base=${pair}&symbols=${settings.currency}`);
-    return { pair, base: settings.currency, range, rates: d.rates || {} };
+    const pair = fxPair(), range = settings.rng.fx, base = settings.currency, itv = chosenItv('fx', 'fx');
+    const s = await seriesFX(pair, base, range, itv);
+    return { pair, base, range, itv, t: s.t, v: s.v };
   } },
   quakes: { name: 'USGS Earthquake Hazards Program', home: 'https://earthquake.usgs.gov/earthquakes/map/', ttl: 2 * 60e3, load: () =>
     getJSON(`https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/${settings.quakeLevel}_${settings.quakePeriod}.geojson`, 25000) },
@@ -1640,42 +1752,36 @@ view({
         <label class="field" for="fx-amt"><span>Amount</span><input id="fx-amt" class="inp" type="number" inputmode="decimal" min="0" step="any" value="100"></label>
         <div class="conv2"><label class="field" for="fx-from"><span>From</span><select id="fx-from" class="btn">${opts(fxPair())}</select></label><button id="fx-swap" class="btn icon" type="button" aria-label="Swap the two currencies">⇄</button><label class="field" for="fx-to"><span>To</span><select id="fx-to" class="btn">${opts(settings.currency)}</select></label></div>
         <div id="m-conv" class="conv-out push"></div></section>
-      <section class="panel" style="grid-area:fxh"><div class="ph"><h2 id="fxh-title">Rate history</h2><div class="seg" role="group" aria-label="Time range" id="fx-range">${['1M', '3M', '1Y', '5Y'].map(r => `<button type="button" data-range="${r}" aria-pressed="${r === settings.fxRange}">${r}</button>`).join('')}</div><span id="fxh-src"></span></div><div id="m-fxh" class="fillcol"></div></section>` + PN('rt', 'm-fx')));
+      <section class="panel" style="grid-area:fxh"><div class="ph"><h2 id="fxh-title">Rate history</h2><span id="fxh-src"></span></div><div id="m-fxh" class="fillcol"></div></section>` + PN('rt', 'm-fx')));
     const recalc = () => renderKey('fx');
     $('#fx-amt').addEventListener('input', recalc);
     $('#fx-from').addEventListener('change', recalc);
     $('#fx-to').addEventListener('change', recalc);
     $('#fx-swap').addEventListener('click', () => { const a = $('#fx-from'), b = $('#fx-to'), t = a.value; a.value = b.value; b.value = t; recalc(); });
-    $('#fx-range').addEventListener('click', e => {
-      const b = e.target.closest('[data-range]'); if (!b) return;
-      settings.fxRange = b.dataset.range; save('fxRange');
-      $('#fx-range').querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b));
-      invalidate(['fxHist']);
-    });
   },
   regions: [
     { sel: '#m-coin', keys: ['crypto', 'coinChart'], render(el) {
       const g = gate(['crypto']); if (g) return el.innerHTML = head('Coin') + g;
       const rows = S.data.crypto, r = rows.find(x => x.id === settings.coin) || rows[0];
-      const cc = S.data.coinChart, ok = cc && cc.id === r.id && cc.cur === settings.currency && cc.prices.length > 1;
-      const pts = ok ? cc.prices.map(p => p[1]) : [], labels = ok ? cc.prices.map(p => new Date(p[0]).toISOString()) : [];
-      const fmtT = iso => { const d = new Date(iso); return WD[d.getDay()] + ' ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }); };
-      const chartBox = ok ? `<div class="chart h220"><canvas id="c-coin" aria-label="${esc(r.name)} price over the last 7 days"></canvas></div>`
-        : S.status.coinChart === 'error' ? `<div class="state err" role="alert"><strong>The 7-day chart didn’t load.</strong><span>${esc(S.err.coinChart)}</span><button class="btn sm" type="button" data-retry="coinChart">Try again</button></div>`
+      const cc = S.data.coinChart, ok = cc && cc.id === r.id && cc.cur === settings.currency && cc.range === settings.rng.coin && cc.v.length > 1;
+      const pts = ok ? cc.v : [], labels = ok ? cc.t.map(t => new Date(t).toISOString()) : [], dcur = ok ? cc.dcur : settings.currency;
+      const tf = timeFmt(settings.rng.coin, ok ? cc.itv : '1D');
+      const chartBox = ok ? `<div class="chart h220"><canvas id="c-coin" aria-label="${esc(r.name)} price, ${esc(settings.rng.coin)}"></canvas></div>`
+        : S.status.coinChart === 'error' ? `<div class="state err" role="alert"><strong>The chart didn’t load.</strong><span>${esc(S.err.coinChart)}</span><button class="btn sm" type="button" data-retry="coinChart">Try again</button></div>`
         : '<div class="state" aria-busy="true" style="flex:1"><span class="sk tall"></span><span class="sk"></span></div>';
-      el.innerHTML = head(`<span style="color:var(--ink);font-weight:600">${esc(r.name)}</span> <span class="mono">${esc(String(r.symbol).toUpperCase())}</span>`, 'Last 7 days') +
-        `<div class="now"><div class="hero md">${fmtMoney(r.current_price)}</div><div class="sm">${delta(r.price_change_percentage_24h_in_currency)} <span class="muted">24 h</span><br>${delta(r.price_change_percentage_7d_in_currency)} <span class="muted">7 d</span></div></div>
+      const rch = ok ? (pts[pts.length - 1] / pts[0] - 1) * 100 : null;
+      el.innerHTML = head(`<span style="color:var(--ink);font-weight:600">${esc(r.name)}</span> <span class="mono">${esc(String(r.symbol).toUpperCase())}</span>`) +
+        `<div class="now"><div class="hero md">${fmtMoney(r.current_price)}</div><div class="sm">${delta(r.price_change_percentage_24h_in_currency)} <span class="muted">24 h</span><br>${rch == null ? '' : `${delta(rch)} <span class="muted">${esc(settings.rng.coin)}</span>`}</div></div>
+        ${rangeBar('coin', 'cg')}${ok && cc.limited ? `<small class="muted">Beyond one year the free data is limited${dcur !== settings.currency ? ': shown in US dollars' : ''}.</small>` : ''}
         ${chartBox}
         <dl class="stat-row"><div><dt>24 h high</dt><dd>${fmtMoney(r.high_24h)}</dd></div><div><dt>24 h low</dt><dd>${fmtMoney(r.low_24h)}</dd></div><div><dt>Market value</dt><dd>${fmtMoney(r.market_cap, settings.currency, true)}</dd></div><div><dt>All-time high</dt><dd>${fmtMoney(r.ath)}</dd></div></dl>` + srcLine(['crypto']);
       if (!ok) return;
       // Pick tick precision from the price range so cheap or stable coins don't repeat the same label on every tick.
-      const fp = pts.filter(fin), rng = fp.length ? Math.max(...fp) - Math.min(...fp) : 0;
-      const tickDigits = Math.min(8, Math.max(0, Math.ceil(-Math.log10((rng || Math.abs(fp[0]) || 1) / 4)) + 1));
-      const tickFmt = v => Math.abs(v) >= 1e5 ? fmtMoney(v, settings.currency, true) : new Intl.NumberFormat(undefined, { style: 'currency', currency: settings.currency, minimumFractionDigits: 0, maximumFractionDigits: tickDigits }).format(v);
+      const fp = pts.filter(fin), digits = tickDigits(Math.min(...fp), Math.max(...fp));
+      const tickFmt = v => Math.abs(v) >= 1e5 ? fmtMoney(v, dcur, true) : new Intl.NumberFormat(undefined, { style: 'currency', currency: dcur, minimumFractionDigits: 0, maximumFractionDigits: digits }).format(v);
       lineChart('coin', $('#c-coin'), labels, [{ label: r.name, data: pts, color: css('--s1'), fill: true }], {
-        xFmt: (l, i) => { const d = new Date(l); return d.getHours() === 0 || i === 0 ? WD[d.getDay()] : ''; }, tipTitle: fmtT, yFmt: tickFmt, tipLabel: c => 'Price: ' + fmtMoney(c.parsed.y)
+        xFmt: tf.tick, tipTitle: tf.tip, yFmt: tickFmt, tipLabel: c => 'Price: ' + fmtMoney(c.parsed.y, dcur)
       });
-      charts.coin && (charts.coin.options.scales.x.ticks.autoSkip = false, charts.coin.update());
     } },
     { sel: '#m-table', keys: ['crypto', 'cglobal'], render(el) {
       const G = S.data.cglobal, cur = settings.currency.toLowerCase();
@@ -1705,18 +1811,74 @@ view({
     { sel: '#m-fxh', keys: ['fxHist'], render(el) {
       const t = $('#fxh-title'); if (t) t.textContent = `${fxPair()} in ${settings.currency}`;
       setSrc('#fxh-src', ['fxHist']);
-      const g = gate(['fxHist']); if (g) return el.innerHTML = g;
-      const d = S.data.fxHist, days = Object.keys(d.rates).sort(), vals = days.map(k => d.rates[k][d.base]);
-      if (!vals.length) return el.innerHTML = '<p class="muted">No history for this pair.</p>';
+      const bar = rangeBar('fx', 'fx');
+      const g = gate(['fxHist']); if (g) return el.innerHTML = bar + g;
+      const d = S.data.fxHist, vals = d.v, tf = timeFmt(d.range, d.itv), days = d.t.map(t => new Date(t).toISOString());
+      if (!vals.length) return el.innerHTML = bar + '<p class="muted">No history for this pair.</p>';
       const first = vals[0], last = vals[vals.length - 1], hi = Math.max(...vals), lo = Math.min(...vals);
-      const long = d.range === '1Y' || d.range === '5Y';
-      el.innerHTML = `<dl class="stat-row"><div><dt>Latest</dt><dd>${fmtMoney(last, d.base)}</dd></div><div><dt>Change</dt><dd>${delta((last / first - 1) * 100)}</dd></div><div><dt>High</dt><dd>${fmtMoney(hi, d.base)}</dd></div><div><dt>Low</dt><dd>${fmtMoney(lo, d.base)}</dd></div></dl>
+      el.innerHTML = bar + `<dl class="stat-row"><div><dt>Latest</dt><dd>${fmtMoney(last, d.base)}</dd></div><div><dt>Change</dt><dd>${delta((last / first - 1) * 100)}</dd></div><div><dt>High</dt><dd>${fmtMoney(hi, d.base)}</dd></div><div><dt>Low</dt><dd>${fmtMoney(lo, d.base)}</dd></div></dl>
         <div class="chart h220"><canvas id="c-fxh" aria-label="${esc(d.pair)} to ${esc(d.base)} exchange rate history"></canvas></div>`;
       lineChart('fxh', $('#c-fxh'), days, [{ label: `1 ${d.pair}`, data: vals, color: css('--s3'), fill: false }], {
-        xFmt: l => new Date(l + 'T12:00').toLocaleDateString(undefined, long ? { month: 'short', year: '2-digit' } : { month: 'short', day: 'numeric' }),
-        tipTitle: l => new Date(l + 'T12:00').toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' }),
+        xFmt: tf.tick, tipTitle: tf.tip,
         yFmt: v => fmtNum(v, v < 10 ? 3 : 2), tipLabel: c => `1 ${d.pair} = ${fmtMoney(c.parsed.y, d.base)}`
       });
+    } }
+  ]
+});
+
+/* Commodities: the price table (left) → the chart of the chosen one (right, tall) → India-style prices (bottom-left). */
+const dayPct = r => fin(r.price) && fin(r.prev) && r.prev ? (r.price / r.prev - 1) * 100 : null;
+const comNum = (v, cur = 'USD') => fmtMoney(v, cur);
+// Indicative Indian prices: the international futures price × USD/INR, in the units Indian traders quote. Duty, GST and premiums are not included.
+const MCX_ROWS = [
+  { s: 'GC=F', n: 'Gold', u: '10 g', f: x => x / 31.1035 * 10 }, { s: 'SI=F', n: 'Silver', u: 'kg', f: x => x / 31.1035 * 1000 },
+  { s: 'HG=F', n: 'Copper', u: 'kg', f: x => x * 2.20462 }, { s: 'CL=F', n: 'Crude oil', u: 'barrel', f: x => x }, { s: 'NG=F', n: 'Natural gas', u: 'MMBtu', f: x => x }
+];
+view({
+  id: 'commodities', label: 'Commodities', title: 'Metals and oil',
+  mount(root) {
+    root.insertAdjacentHTML('beforeend', pg('commodities', PN('tbl', 'c-table') + PN('chart', 'c-chart') + PN('mcx', 'c-mcx')));
+  },
+  regions: [
+    { sel: '#c-table', keys: ['comList'], render(el) {
+      const top = head('Futures', `<span id="c-src"></span>`);
+      const g = gate(['comList']); if (g) return el.innerHTML = top + g;
+      const up = css('--good-ink'), dn = css('--bad-ink');
+      el.innerHTML = top + `<div class="tbl com-tbl"><table><thead><tr><th>Commodity</th><th class="num">Price (USD)</th><th class="num">Day</th><th>5 days</th></tr></thead><tbody>${COMMODITIES.map(c => {
+        const r = S.data.comList.find(x => x.sym === c.s) || {}, p = dayPct(r);
+        return `<tr class="pick" data-com="${esc(c.s)}" tabindex="0" aria-selected="${c.s === settings.com}"><td title="Price per ${esc(c.u)}"><b>${esc(c.n)}</b><small>${esc(c.ex)}</small></td><td class="num">${fin(r.price) ? comNum(r.price) : '—'}</td><td class="num">${p == null ? '—' : delta(p)}</td><td>${spark(r.spark || [], (p || 0) >= 0 ? up : dn, 74, 24)}</td></tr>`;
+      }).join('')}</tbody></table></div>`;
+      setSrc('#c-src', ['comList']);
+    } },
+    { sel: '#c-chart', keys: ['comList', 'comChart'], render(el) {
+      const c = comOf(settings.com), bar = rangeBar('com', 'yahoo');
+      const r = (S.data.comList || []).find(x => x.sym === c.s), p = r ? dayPct(r) : null;
+      const cc = S.data.comChart, ok = cc && cc.sym === c.s && cc.range === settings.rng.com && cc.v.length > 1;
+      const rch = ok ? (cc.v[cc.v.length - 1] / cc.v[0] - 1) * 100 : null;
+      const box = ok ? `<div class="chart" style="flex:1;min-height:0"><canvas id="c-com" aria-label="${esc(c.n)} price, ${esc(settings.rng.com)}"></canvas></div>`
+        : S.status.comChart === 'error' ? `<div class="state err" role="alert"><strong>The chart didn’t load.</strong><span>${esc(S.err.comChart)}</span><button class="btn sm" type="button" data-retry="comChart">Try again</button></div>`
+        : cc && cc.sym === c.s && cc.range === settings.rng.com ? '<p class="muted">No trades in this window. The market may be closed. Try a longer range.</p>'
+        : '<div class="state" aria-busy="true" style="flex:1"><span class="sk tall"></span><span class="sk"></span></div>';
+      el.innerHTML = head(`<span style="color:var(--ink);font-weight:600">${esc(c.n)}</span> <span class="mono">${esc(c.s)}</span> <span class="muted">${esc(c.ex)}</span>`, `<span id="c-src2"></span>`) +
+        `<div class="now"><div class="hero md">${r && fin(r.price) ? comNum(r.price) : '—'}</div><div class="sm">${p == null ? '' : `${delta(p)} <span class="muted">day</span>`}<br>${rch == null ? '' : `${delta(rch)} <span class="muted">${esc(settings.rng.com)}</span>`}</div></div>
+        ${bar}${box}
+        <dl class="stat-row"><div><dt>Day high</dt><dd>${r && fin(r.hi) ? comNum(r.hi) : '—'}</dd></div><div><dt>Day low</dt><dd>${r && fin(r.lo) ? comNum(r.lo) : '—'}</dd></div><div><dt>52-week high</dt><dd>${r && fin(r.hi52) ? comNum(r.hi52) : '—'}</dd></div><div><dt>52-week low</dt><dd>${r && fin(r.lo52) ? comNum(r.lo52) : '—'}</dd></div></dl>`;
+      setSrc('#c-src2', ['comChart']);
+      if (!ok) return;
+      const fp = cc.v, digits = tickDigits(Math.min(...fp), Math.max(...fp)), tf = timeFmt(cc.range, cc.itv);
+      lineChart('com', $('#c-com'), cc.t.map(t => new Date(t).toISOString()), [{ label: c.n, data: cc.v, color: css('--s1'), fill: true }], {
+        xFmt: tf.tick, tipTitle: tf.tip, yFmt: v => fmtNum(v, digits), tipLabel: x => `Price: ${comNum(x.parsed.y)}`
+      });
+    } },
+    { sel: '#c-mcx', keys: ['comList', 'fx'], render(el) {
+      const top = head('In India · indicative', '<span class="muted">₹, before duty and GST</span>');
+      const g = gate(['comList', 'fx']); if (g) return el.innerHTML = top + g;
+      const fx = S.data.fx, rate = x => x === settings.currency ? 1 : fx.rates[x], usdinr = rate('INR') / rate('USD');
+      if (!fin(usdinr)) return el.innerHTML = top + '<p class="muted">No USD/INR rate today.</p>';
+      el.innerHTML = top + `<div class="scroll">${MCX_ROWS.map(m => {
+        const r = S.data.comList.find(x => x.sym === m.s) || {}, p = dayPct(r);
+        return `<button type="button" class="rate-row" data-com="${esc(m.s)}" aria-pressed="${m.s === settings.com}"><span><b>${esc(m.n)}</b><small>per ${esc(m.u)}</small></span><span><b>${fin(r.price) ? esc(fmtMoney(m.f(r.price) * usdinr, 'INR')) : '—'}</b> ${p == null ? '' : delta(p, 1)}</span></button>`;
+      }).join('')}</div><small class="muted">USD/INR ${fmtNum(usdinr, 2)}. Live MCX prices need a licensed feed.</small>`;
     } }
   ]
 });
@@ -2348,7 +2510,7 @@ view({
 /* ---------- router & rendering ---------- */
 let current = null, currentId = null;
 const viewKeys = v => [...new Set(v.regions.flatMap(r => r.keys))];
-const FOCUS_KEYS = ['coin', 'quake', 'qsort', 'fx', 'rmc', 'retry', 'pin', 'mv', 'usep', 'airfc', 'etab', 'evid', 'rmp'];
+const FOCUS_KEYS = ['rng', 'itv', 'com', 'coin','quake', 'qsort', 'fx', 'rmc', 'retry', 'pin', 'mv', 'usep', 'airfc', 'etab', 'evid', 'rmp'];
 function renderRegion(r) {
   const el = $(r.sel); if (!el) return;
   // A refresh rebuilds the panel; put keyboard focus back on the same control afterwards.
@@ -2373,6 +2535,7 @@ const NAV_ICON = {
   weather: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
   air: '<path d="M3 8h11a3 3 0 1 0-3-3M3 12h15a3 3 0 1 1-3 3M3 16h7"/>',
   markets: '<path d="M3 17l5-5 4 4 8-8M15 8h5v5"/>',
+  commodities: '<path d="M6 8l3-4h6l3 4-6 12z"/><path d="M6 8h12M9 4l3 16M15 4l-3 16"/>',
   earth: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',
   space: '<path d="M5 19l4-4M14 4c3 0 6 3 6 6l-7 7-6-6zM9 13l-3 1-2 4 4-2 1-3"/>',
   economy: '<path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/>',
@@ -2427,6 +2590,8 @@ document.addEventListener('click', e => {
   if (!t.closest('.cm-list')) closeMenus(); else setTimeout(closeMenus, 0);
   const r = t.closest('[data-retry]'); if (r) { S.fail[r.dataset.retry] = 0; load(r.dataset.retry); return; }
   const c = t.closest('[data-coin]'); if (c) { const same = settings.coin === c.dataset.coin; settings.coin = c.dataset.coin; save('coin'); if (same) renderKey('crypto'); else { renderKey('crypto'); invalidate(['coinChart']); } const p = $('#m-coin'); if (p && p.getBoundingClientRect().top < 0) p.scrollIntoView({ behavior: RM ? 'auto' : 'smooth' }); return; }
+  const rg = t.closest('[data-rng]'); if (rg) { const [k, r] = rg.dataset.rng.split('|'); if (CHART_KEY[k] && RANGES.includes(r)) { settings.rng[k] = r; save('rng'); invalidate([CHART_KEY[k]]); renderKey(CHART_KEY[k]); } return; }
+  const cm = t.closest('[data-com]'); if (cm) { settings.com = cm.dataset.com; save('com'); renderKey('comList'); invalidate(['comChart']); renderKey('comChart'); return; }
   const f = t.closest('[data-fx]'); if (f) { settings.fxPair = f.dataset.fx; save('fxPair'); renderKey('fx'); invalidate(['fxHist']); return; }
   const q = t.closest('[data-qsort]'); if (q) { settings.quakeSort = q.dataset.qsort; save('quakeSort'); renderKey('quakes'); return; }
   const qk = t.closest('[data-quake]'); if (qk && maps.q) { const mk = maps.q.byId[qk.dataset.quake]; if (mk) { if (!FIT.matches) $('#q-mapbox').scrollIntoView({ behavior: RM ? 'auto' : 'smooth', block: 'center' }); if (RM) { maps.q.map.setView(mk.getLatLng(), 5); mk.openPopup(); } else { maps.q.map.flyTo(mk.getLatLng(), 5, { duration: 1 }); setTimeout(() => mk.openPopup(), 1000); } } return; }
@@ -2462,6 +2627,11 @@ document.addEventListener('click', e => {
   }
   const dc = t.closest('[data-close]'); if (dc) { const d = dc.closest('dialog'); if (d) d.close(); return; }
   const rm = t.closest('[data-rmc]'); if (rm) { settings.wbCountries = settings.wbCountries.filter(x => x.id !== rm.dataset.rmc); save('wbCountries'); renderChips(); renderKey('wbCountries'); invalidate(['wb']); return; }
+});
+const CHART_KEY = { coin: 'coinChart', fx: 'fxHist', com: 'comChart' };
+document.addEventListener('change', e => {
+  const s = e.target.closest && e.target.closest('[data-itv]'); if (!s || !CHART_KEY[s.dataset.itv]) return;
+  settings.itv[s.dataset.itv] = s.value; save('itv'); invalidate([CHART_KEY[s.dataset.itv]]); renderKey(CHART_KEY[s.dataset.itv]);
 });
 document.addEventListener('keydown', e => {
   if ((e.key === 'Enter' || e.key === ' ') && e.target.matches && e.target.matches('.pick')) { e.preventDefault(); e.target.click(); }
