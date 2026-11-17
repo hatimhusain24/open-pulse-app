@@ -15,12 +15,16 @@ async function chart(sym, qs) {
   const res = j && j.chart && j.chart.result && j.chart.result[0];
   if (!res) throw new Error((j && j.chart && j.chart.error && j.chart.error.description) || 'No data for this symbol');
   const m = res.meta || {}, q = (res.indicators && res.indicators.quote && res.indicators.quote[0]) || {};
-  const t = [], c = [];
-  (res.timestamp || []).forEach((ts, i) => { const v = q.close && q.close[i]; if (typeof v === 'number' && isFinite(v)) { t.push(ts * 1000); c.push(+v.toPrecision(8)); } });
+  const t = [], c = [], o = [], h = [], l = [], n = x => (typeof x === 'number' && isFinite(x) ? +x.toPrecision(8) : null);
+  (res.timestamp || []).forEach((ts, i) => {
+    const v = q.close && q.close[i]; if (typeof v !== 'number' || !isFinite(v)) return;
+    t.push(ts * 1000); c.push(+v.toPrecision(8));
+    o.push(n(q.open && q.open[i]) ?? v); h.push(n(q.high && q.high[i]) ?? v); l.push(n(q.low && q.low[i]) ?? v);
+  });
   return {
     sym, name: m.shortName || m.longName || sym, exch: m.fullExchangeName || m.exchangeName || '', cur: m.currency || 'USD',
     price: m.regularMarketPrice, prev: m.chartPreviousClose, hi: m.regularMarketDayHigh, lo: m.regularMarketDayLow,
-    hi52: m.fiftyTwoWeekHigh, lo52: m.fiftyTwoWeekLow, time: m.regularMarketTime ? m.regularMarketTime * 1000 : null, t, c
+    hi52: m.fiftyTwoWeekHigh, lo52: m.fiftyTwoWeekLow, time: m.regularMarketTime ? m.regularMarketTime * 1000 : null, t, c, o, h, l
   };
 }
 
@@ -34,7 +38,7 @@ export default async function handler(req, res) {
       const out = await Promise.all(syms.map(async s => {
         try {
           const [d, w] = await Promise.all([chart(s, 'range=1d&interval=1d'), chart(s, 'range=5d&interval=60m')]);
-          return { ...d, spark: w.c.filter((_, i) => i % 2 === 0), t: undefined, c: undefined };
+          return { ...d, spark: w.c.filter((_, i) => i % 2 === 0), t: undefined, c: undefined, o: undefined, h: undefined, l: undefined };
         } catch (e) { return { sym: s, error: e.message }; }
       }));
       return res.status(200).json({ list: out });

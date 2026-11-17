@@ -718,6 +718,7 @@ const settings = {
   rng: store.get('rng', {}),
   itv: store.get('itv', {}),
   com: store.get('com', 'GC=F'),
+  ctype: store.get('ctype', 'line'),
   quakeLevel: store.get('quakeLevel', '2.5'),
   quakePeriod: store.get('quakePeriod', 'day'),
   quakeSort: store.get('quakeSort', 'time'),
@@ -753,6 +754,7 @@ if (!['en', 'de', 'fr', 'es', 'it', 'ru', 'ja'].includes(settings.wikiLang)) set
 const RANGES = ['1D', '5D', '7D', '15D', '1M', '3M', '6M', 'YTD', '1Y', '5Y', 'All'];
 settings.rng = { coin: '7D', fx: '3M', com: '1M', ...(settings.rng && typeof settings.rng === 'object' ? settings.rng : {}) };
 Object.keys(settings.rng).forEach(k => { if (!RANGES.includes(settings.rng[k])) settings.rng[k] = { coin: '7D', fx: '3M', com: '1M' }[k] || '1M'; });
+if (!['line', 'candle'].includes(settings.ctype)) settings.ctype = 'line';
 settings.itv = settings.itv && typeof settings.itv === 'object' ? settings.itv : {};
 if (typeof settings.coin !== 'string') settings.coin = 'bitcoin';
 settings.follow = settings.follow !== false;
@@ -837,10 +839,14 @@ function bucketKey(t, itv) {
   return Math.floor(t / 1000 / ITV[itv][0]);
 }
 // Group points into candles of the chosen size, keeping the last value of each.
-function resample(t, v, itv) {
-  const T = [], V = []; let last = null;
-  for (let i = 0; i < t.length; i++) { const k = bucketKey(t[i], itv); if (k === last) { T[T.length - 1] = t[i]; V[V.length - 1] = v[i]; } else { T.push(t[i]); V.push(v[i]); last = k; } }
-  return { t: T, v: V };
+function resample(t, v, itv, ohl) {
+  const T = [], V = [], O = [], H = [], L = []; let last = null;
+  for (let i = 0; i < t.length; i++) {
+    const k = bucketKey(t[i], itv), n = T.length - 1;
+    if (k === last) { T[n] = t[i]; V[n] = v[i]; if (ohl) { H[n] = Math.max(H[n], ohl.h[i]); L[n] = Math.min(L[n], ohl.l[i]); } }
+    else { T.push(t[i]); V.push(v[i]); if (ohl) { O.push(ohl.o[i]); H.push(ohl.h[i]); L.push(ohl.l[i]); } last = k; }
+  }
+  return ohl ? { t: T, v: V, o: O, h: H, l: L } : { t: T, v: V };
 }
 const memo = new Map();
 async function memoized(key, ttl, fn) { const h = memo.get(key); if (h && Date.now() - h.at < ttl) return h.v; const v = await fn(); memo.set(key, { at: Date.now(), v }); return v; }
@@ -854,7 +860,7 @@ async function seriesYahoo(sym, range, itv) {
     if (r.error) throw new Error(r.error);
     return r;
   });
-  const s = resample(j.t, j.c, itv); return { ...j, t: s.t, v: s.v, c: undefined };
+  const s = resample(j.t, j.c, itv, { o: j.o, h: j.h, l: j.l }); return { ...j, ...s, c: undefined };
 }
 async function seriesCG(id, cur, range, itv, sym) {
   const d = rangeDays(range);
@@ -875,10 +881,10 @@ async function seriesFX(pair, base, range, itv) {
   return resample(t, v, itv);
 }
 // The range buttons and candle-size menu that sit above a chart. key: 'coin' | 'fx' | 'com'; src: which source feeds it.
-function rangeBar(key, src) {
+function rangeBar(key, src, extra = '') {
   const r = settings.rng[key], cur = validItv(src, r).includes(settings.itv[key]) ? settings.itv[key] : 'auto';
   const opt = (v, t, ok) => `<option value="${v}"${v === cur ? ' selected' : ''}${ok ? '' : ' disabled'}>${t}</option>`;
-  return `<div class="rb"><div class="seg xs" role="group" aria-label="Time range">${RANGES.map(x => `<button type="button" data-rng="${key}|${x}" aria-pressed="${x === r}"${validItv(src, x).length ? '' : ' disabled'}>${x}</button>`).join('')}</div>
+  return `<div class="rb"><div class="seg xs" role="group" aria-label="Time range">${RANGES.map(x => `<button type="button" data-rng="${key}|${x}" aria-pressed="${x === r}"${validItv(src, x).length ? '' : ' disabled'}>${x}</button>`).join('')}</div>${extra}
     <select class="btn sm" data-itv="${key}" aria-label="Candle size">${opt('auto', `Auto · ${ITV[autoItv(src, r)][1]}`, true)}${Object.keys(ITV).map(k => opt(k, ITV[k][1], validItv(src, r).includes(k))).join('')}</select></div>`;
 }
 // Axis and tooltip date text that fits the window and the candle size.
@@ -947,7 +953,7 @@ const SRC = {
   comChart: { name: 'Yahoo Finance · futures, delayed', home: 'https://finance.yahoo.com/commodities/', ttl: 2 * 60e3, load: async () => {
     const sym = settings.com, range = settings.rng.com, itv = chosenItv('com', 'yahoo');
     const s = await seriesYahoo(sym, range, itv);
-    return { sym, range, itv, t: s.t, v: s.v };
+    return { sym, range, itv, t: s.t, v: s.v, o: s.o, h: s.h, l: s.l };
   } },
   cglobal: { name: 'CoinGecko', home: 'https://www.coingecko.com/en/global-charts', ttl: 5 * 60e3, load: async () => (await getJSON('https://api.coingecko.com/api/v3/global')).data },
   fx: { name: 'Frankfurter · ECB reference rates', home: 'https://frankfurter.dev/', ttl: 60 * 60e3, load: async () => {
@@ -1123,6 +1129,26 @@ function lineChart(id, canvas, labels, sets, o = {}) {
     type: 'line',
     data: { labels, datasets: sets.map(s => ({ label: s.label, data: s.data, borderColor: s.color, backgroundColor: s.fill ? hexA(s.color, 0.13) : s.color, fill: s.fill ? 'origin' : false, borderWidth: 2, pointRadius: 0, pointHoverRadius: 4.5, pointHoverBorderWidth: 2, pointHoverBorderColor: css('--panel'), pointHoverBackgroundColor: s.color, tension: 0.25, spanGaps: true, borderDash: s.dash || [] })) },
     options: chartOpts(o), plugins: o.bands ? [aqiBands, crosshair] : [crosshair]
+  });
+}
+// Candlesticks: floating bars for open→close, with a plugin drawing the high–low wick.
+function candleChart(id, canvas, labels, d, o = {}) {
+  killChart(id);
+  canvas.setAttribute('role', 'img');
+  if (!window.Chart) return;
+  const up = css('--good-ink'), dn = css('--bad-ink'), col = d.c.map((c, i) => c >= d.o[i] ? up : dn);
+  const lo = Math.min(...d.l), hi = Math.max(...d.h), pad = (hi - lo) * 0.05 || 1;
+  const wick = { id: 'wick', afterDatasetsDraw(ch) {
+    const m = ch.getDatasetMeta(0), y = ch.scales.y, c = ch.ctx; c.save(); c.lineWidth = 1;
+    m.data.forEach((el, i) => { c.strokeStyle = col[i]; c.beginPath(); c.moveTo(el.x, y.getPixelForValue(d.h[i])); c.lineTo(el.x, y.getPixelForValue(d.l[i])); c.stroke(); });
+    c.restore();
+  } };
+  const opts = chartOpts({ ...o, yMin: lo - pad, yMax: hi + pad });
+  opts.scales.y.beginAtZero = false;
+  charts[id] = new Chart(canvas, {
+    type: 'bar',
+    data: { labels, datasets: [{ label: '', data: d.o.map((x, i) => [x, d.c[i]]), backgroundColor: col, borderColor: col, borderWidth: 1, borderSkipped: false, categoryPercentage: 1, barPercentage: 0.7 }] },
+    options: opts, plugins: [wick, crosshair]
   });
 }
 function barChart(id, canvas, labels, data, color, o = {}) {
@@ -1851,7 +1877,7 @@ view({
       setSrc('#c-src', ['comList']);
     } },
     { sel: '#c-chart', keys: ['comList', 'comChart'], render(el) {
-      const c = comOf(settings.com), bar = rangeBar('com', 'yahoo');
+      const c = comOf(settings.com), bar = rangeBar('com', 'yahoo', `<div class="seg xs" role="group" aria-label="Chart type">${[['line', 'Line'], ['candle', 'Candles']].map(([k, t]) => `<button type="button" data-ctype="${k}" aria-pressed="${settings.ctype === k}">${t}</button>`).join('')}</div>`);
       const r = (S.data.comList || []).find(x => x.sym === c.s), p = r ? dayPct(r) : null;
       const cc = S.data.comChart, ok = cc && cc.sym === c.s && cc.range === settings.rng.com && cc.v.length > 1;
       const rch = ok ? (cc.v[cc.v.length - 1] / cc.v[0] - 1) * 100 : null;
@@ -1866,7 +1892,13 @@ view({
       setSrc('#c-src2', ['comChart']);
       if (!ok) return;
       const fp = cc.v, digits = tickDigits(Math.min(...fp), Math.max(...fp)), tf = timeFmt(cc.range, cc.itv);
-      lineChart('com', $('#c-com'), cc.t.map(t => new Date(t).toISOString()), [{ label: c.n, data: cc.v, color: css('--s1'), fill: true }], {
+      const labels = cc.t.map(t => new Date(t).toISOString());
+      if (settings.ctype === 'candle' && cc.o) {
+        candleChart('com', $('#c-com'), labels, { o: cc.o, h: cc.h, l: cc.l, c: cc.v }, {
+          xFmt: tf.tick, tipTitle: tf.tip, yFmt: v => fmtNum(v, digits),
+          tipLabel: x => { const i = x.dataIndex; return `O ${fmtNum(cc.o[i], 2)}  H ${fmtNum(cc.h[i], 2)}  L ${fmtNum(cc.l[i], 2)}  C ${fmtNum(cc.v[i], 2)}`; }
+        });
+      } else lineChart('com', $('#c-com'), labels, [{ label: c.n, data: cc.v, color: css('--s1'), fill: true }], {
         xFmt: tf.tick, tipTitle: tf.tip, yFmt: v => fmtNum(v, digits), tipLabel: x => `Price: ${comNum(x.parsed.y)}`
       });
     } },
@@ -2510,7 +2542,7 @@ view({
 /* ---------- router & rendering ---------- */
 let current = null, currentId = null;
 const viewKeys = v => [...new Set(v.regions.flatMap(r => r.keys))];
-const FOCUS_KEYS = ['rng', 'itv', 'com', 'coin','quake', 'qsort', 'fx', 'rmc', 'retry', 'pin', 'mv', 'usep', 'airfc', 'etab', 'evid', 'rmp'];
+const FOCUS_KEYS = ['ctype', 'rng', 'itv', 'com', 'coin','quake', 'qsort', 'fx', 'rmc', 'retry', 'pin', 'mv', 'usep', 'airfc', 'etab', 'evid', 'rmp'];
 function renderRegion(r) {
   const el = $(r.sel); if (!el) return;
   // A refresh rebuilds the panel; put keyboard focus back on the same control afterwards.
@@ -2591,6 +2623,7 @@ document.addEventListener('click', e => {
   const r = t.closest('[data-retry]'); if (r) { S.fail[r.dataset.retry] = 0; load(r.dataset.retry); return; }
   const c = t.closest('[data-coin]'); if (c) { const same = settings.coin === c.dataset.coin; settings.coin = c.dataset.coin; save('coin'); if (same) renderKey('crypto'); else { renderKey('crypto'); invalidate(['coinChart']); } const p = $('#m-coin'); if (p && p.getBoundingClientRect().top < 0) p.scrollIntoView({ behavior: RM ? 'auto' : 'smooth' }); return; }
   const rg = t.closest('[data-rng]'); if (rg) { const [k, r] = rg.dataset.rng.split('|'); if (CHART_KEY[k] && RANGES.includes(r)) { settings.rng[k] = r; save('rng'); invalidate([CHART_KEY[k]]); renderKey(CHART_KEY[k]); } return; }
+  const ct = t.closest('[data-ctype]'); if (ct) { settings.ctype = ct.dataset.ctype; save('ctype'); renderKey('comChart'); return; }
   const cm = t.closest('[data-com]'); if (cm) { settings.com = cm.dataset.com; save('com'); renderKey('comList'); invalidate(['comChart']); renderKey('comChart'); return; }
   const f = t.closest('[data-fx]'); if (f) { settings.fxPair = f.dataset.fx; save('fxPair'); renderKey('fx'); invalidate(['fxHist']); return; }
   const q = t.closest('[data-qsort]'); if (q) { settings.quakeSort = q.dataset.qsort; save('quakeSort'); renderKey('quakes'); return; }
